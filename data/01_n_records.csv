@@ -1,11 +1,11 @@
 species,n_full,n_hist,n_full_10km,n_full_100km,n_hist_10km,n_hist_100km
 L_complexa,84,44,61,31,34,23
-L_cruzi,74,15,55,29,8,7
+L_cruzi,74,15,55,30,8,7
 L_flaviscutellata,521,225,392,164,192,99
 L_intermedia,298,143,194,50,108,37
-L_longipalpis,803,343,555,186,298,117
-L_migonei,758,347,570,165,296,116
+L_longipalpis,803,343,555,182,298,117
+L_migonei,758,347,570,166,297,115
 L_neivai,283,97,199,61,82,32
 L_umbratilis,227,119,176,81,98,57
 L_wellcomei,52,26,36,16,18,10
-L_whitmani,905,342,700,186,291,116
+L_whitmani,904,341,699,185,290,115
