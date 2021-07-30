@@ -1,0 +1,2 @@
+"species_name","original_predictors","select_variables","original.n","original.n.back","buffer_type","dist_buf","seed","res.x","res.y","clean_dupl","clean_nas","clean_uni","geo_filt","geo_filt_dist","models_dir","partition","boot_proportion","boot_n","cv_partitions","cv_n","selected_predictors","final.n","final.n.back"
+"L_neivai","bio10_SA-bio13_SA-bio15_SA-bio2_SA-bio3_SA",FALSE,61,610,"user",NA,123,0.0416666666666667,0.0416666666666667,TRUE,TRUE,TRUE,FALSE,NA,"./outputs/models/","crossvalidation",0.1,10,10,1,"bio10_SA-bio13_SA-bio15_SA-bio2_SA-bio3_SA",61,610
