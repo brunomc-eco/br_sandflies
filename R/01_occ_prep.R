@@ -101,12 +101,10 @@ occ_hist_100km <- thinning(occ_hist, 100)
 
 # generating validation datasets ------------------------------------------
 
-## need to rethink this. The anti join is not filtering out all records, review thining method by species
+occ_hist_valid_100 <- occ_hist %>%
+  anti_join(occ_hist_100km)
 
-occ_hist_valid <- filter(occ_hist, species == 'L_migonei') %>%
-  anti_join(filter(occ_hist_100, species == 'L_migonei'))
-
-write_csv(occ_hist_valid, "./data/01_occ_hist_100km_valid.csv")
+write_csv(occ_hist_valid_100, "./data/01_occ_hist_100km_valid.csv")
 
 
 # counting records --------------------------------------------------------
