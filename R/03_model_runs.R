@@ -4,33 +4,49 @@
 
 library(raster)
 library(rgeos)
+library(rgdal)
 library(dplyr)
 library(readr)
 library(modleR)
 
 
-# loading species occurrence
+# loading occs and predictors ---------------------------------------------
+
+## species occurrence
 occ_hist <- read_csv("./data/01_occ_hist.csv")
 occ_hist_100 <- read_csv("./data/01_occ_full_100km.csv")
 
-study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", "L_umbratilis",
-              "L_flaviscutellata", "L_cruzi", "L_intermedia", "L_complexa", "L_wellcomei")
+study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
+              "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
+              "L_intermedia", "L_complexa", "L_wellcomei")
 
 # set to be modelled
 occs <- occ_hist_100
 
-# loading selected predictors
-layer_path <- c("D:/OneDrive/work/layers/raster/WorldClim_v2/current_SA_WorldClim2_2.5")
+
+## selected predictors
 
 wc_sel_names <- read_lines("./data/02_selected_variable_names.txt")
+ext <- readRDS("./data/02_study_extent.rds")
+
+#test
+#layer_path <- c("C:/layers/wc2_test_prec_SA_10/")
+#wc <- list.files(layer_path, pattern = ".tif", full.names = TRUE) %>%
+#  stack() %>%
+#  crop(ext)
+
+layer_path <- c("C:/layers/wc2_current_SA_2.5/")
 
 wc <- list.files(layer_path, pattern = "_SA.asc", full.names = TRUE) %>%
   stack() %>%
-  subset(wc_sel_names)
+  subset(wc_sel_names) %>%
+  crop(ext)
 
 # projections
-crs.wgs84 <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")  # geographical, datum WGS84
-crs.albers <- CRS("+proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60 +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs") # projected, South America Albers Equal Area Conic
+crs.wgs84 <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")  # geographical, WGS84
+crs.albers <- CRS("+proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60
+                  +x_0=0 +y_0=0 +ellps=aust_SA 
+                  +units=m +no_defs") # projected, SA Albers Equal Area Conic
 
 
 # modleR 1/4: Setup data --------------------------------------------------
@@ -62,22 +78,22 @@ for(i in 1:length(study_sp)){
                 seed = 123, # set seed for random generation of pseudoabsences
                 buffer_type = "user", # buffer type for sampling pseudoabsences
                 buffer_shape = mcp_buf, # buffer created in previous step
-                clean_dupl = TRUE, # remove duplicate records (done in script 01)
+                select_variables = FALSE, # do not select/exclude variables
                 clean_nas = TRUE, # remove records with na values from variables
-                clean_uni = TRUE, # remove records falling at the same pixel (done in script 01)
+                clean_uni = TRUE, # remove records falling at the same pixel
                 png_sdmdata = TRUE, # save minimaps in png
                 n_back = nrow(species_df) * 10, # number of pseudoabsences
                 partition_type = partition_type,
                 cv_partitions = 10, # number of folds for crossvalidation
                 cv_n = 1,# number of crossvalidation runs
-                boot_n = 10, # number of crossvalidation runs
-                boot_proportion = 0.1) # number of partitions in the crossvalidation
+                boot_n = 10, # number of bootstrap runs
+                boot_proportion = 0.1) # number of partitions in the bootstrap
 }
 
 
 
-
 # modleR 2/4: model calibration -------------------------------------------
+
 
 for(i in 1:length(study_sp)){
   
@@ -85,11 +101,10 @@ for(i in 1:length(study_sp)){
   do_many(species_name = study_sp[i],
           predictors = wc,
           models_dir = "./outputs/models",
-          project_model = F, # project models into other sets of variables
-          #proj_data_folder = "./data/env_sel/future/", # folder with projection variables
-          #mask = ma_mask, # mask for projecting the models
+          project_model = TRUE, # project models into other sets of variables
+          proj_data_folder = "C:/layers/future_test", # folder with GCM projection variables
           png_partitions = TRUE, # save minimaps in png?
-          write_bin_cut = TRUE, # save binary and cut outputs?
+          write_bin_cut = FALSE, # save binary and cut outputs?
           dismo_threshold = "spec_sens", # threshold rule for binary outputs
           equalize = TRUE, # equalize numbers of presence and pseudoabsences for random forest and brt
           bioclim = TRUE,
@@ -97,26 +112,32 @@ for(i in 1:length(study_sp)){
           maxent = TRUE,
           rf = TRUE,
           svmk = TRUE,
-          brt = TRUE,
-          svme = TRUE)
+          brt = TRUE)
 }
 
 
 # modleR 3/4: final models by algo ----------------------------------------
 
-# projections path names
-paths <- c("present", "ac85bi50", "he85bi50", "mp85bi50")
+# projections path names (GCMs)
+paths <- c("present", "futtest1", "futtest2")
 
 for(i in 1:length(study_sp)){
   
-  #combine partitions into one final model per algorithm
-  final_model(species_name = study_sp[i],
-              models_dir = "./outputs/models/",
-              which_models = c("raw_mean", "bin_consensus"),
-              proj_dir = "present", #"present" "ac85bi50" "he85bi50" "mp85bi50" change paths later
-              consensus_level = 0.5, # proportion of models in the binary consensus
-              png_final = TRUE,
-              overwrite = TRUE)
+  for(path in paths){
+    
+    #combine partitions into one final model per algorithm
+    final_model(species_name = study_sp[i],
+                models_dir = "./outputs/models/",
+                scale_models = TRUE, # convert model outputs to 0-1
+                which_models = c("raw_mean", "raw_mean_th"), # mean outputs by algo and binarise them using the mean of maxTSS thresholds of each partition
+                mean_th_par = "spec_sens",
+                proj_dir = path,
+                #consensus_level = 0.5, # proportion of models in the binary consensus
+                png_final = TRUE,
+                overwrite = TRUE)
+    
+  }
+  
 }
 
 # modleR 4/4: model ensemble ----------------------------------------------

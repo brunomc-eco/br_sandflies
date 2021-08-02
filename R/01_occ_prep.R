@@ -8,11 +8,16 @@ library(ggplot2)
 library(spThin)
 library(data.table)
 
-# select study species
-study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", "L_umbratilis",
-              "L_flaviscutellata", "L_cruzi", "L_intermedia", "L_complexa", "L_wellcomei")
 
-# function of quick visual inspection of records
+# load data ---------------------------------------------------------------
+
+
+# select study species
+study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
+              "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
+              "L_intermedia", "L_complexa", "L_wellcomei")
+
+# function for quick visual inspection of records
 visual_check <- function(x){
   ggplot() +
     borders("world", colour="white", fill="gray50") +
@@ -94,6 +99,16 @@ occ_hist_10km <- thinning(occ_hist, 10)
 occ_hist_100km <- thinning(occ_hist, 100)
 
 
+# generating validation datasets ------------------------------------------
+
+## need to rethink this. The anti join is not filtering out all records, review thining method by species
+
+occ_hist_valid <- filter(occ_hist, species == 'L_migonei') %>%
+  anti_join(filter(occ_hist_100, species == 'L_migonei'))
+
+write_csv(occ_hist_valid, "./data/01_occ_hist_100km_valid.csv")
+
+
 # counting records --------------------------------------------------------
 
 
@@ -113,11 +128,13 @@ n_records <- count_unique(occ_full) %>%
   left_join(count_unique(occ_hist_10km), by = "species") %>%
   left_join(count_unique(occ_hist_100km), by = "species")
 
-names(n_records) <- c("species", "n_full", "n_hist", 
-                      "n_full_10km", "n_full_100km", "n_hist_10km", "n_hist_100km")
+names(n_records) <- c("species", "n_full", "n_hist", "n_full_10km", 
+                      "n_full_100km", "n_hist_10km", "n_hist_100km")
 
 
-# saving thinned data and record counts
+
+# saving outputs ----------------------------------------------------------
+
 write_csv(occ_full_10km, "./data/01_occ_full_10km.csv")
 write_csv(occ_full_100km, "./data/01_occ_full_100km.csv")
 write_csv(occ_hist_10km, "./data/01_occ_hist_10km.csv")
