@@ -25,19 +25,21 @@ sens_thres <- 0.8
 # set consensus level for ensemble binary
 consensus_level <- 0.5
 
+# name the folder where previous final models were saved
+run_name <- c("./outputs/models_hist_100km/")
 
 # calculate sensitivity/omission ------------------------------------------
 
 for(i in 1:length(study_sp)){
   
   # load final models for this species
-  final_models <- list.files(path = paste0("./outputs/models/", study_sp[i], 
+  final_models <- list.files(path = paste0(run_name, study_sp[i], 
                                            "/present/final_models"),
                              pattern = "raw_mean_th.tif",
                              full.names = TRUE) %>%
     stack()
   
-  algo <- read_csv(paste0("./outputs/models/", study_sp[i], 
+  algo <- read_csv(paste0(run_name, study_sp[i], 
                           "/present/final_models/", study_sp[i], 
                           "_mean_statistics.csv")) %>%
     pull(algorithm)
@@ -63,7 +65,7 @@ for(i in 1:length(study_sp)){
            sensitivity = ones/(zeros+ones),
            pass = ifelse(sensitivity > sens_thres, 1, 0))
   
-  write_csv(t, file = paste0("./outputs/models/", study_sp[i], 
+  write_csv(t, file = paste0(run_name, study_sp[i], 
                              "/present/final_models/", study_sp[i], 
                              "_external_validation.csv"))
 }
@@ -73,12 +75,24 @@ for(i in 1:length(study_sp)){
 # ensemble based on sensitivity -------------------------------------------
 
 # projections path names (GCMs)
-paths <- c("present", "futtest1", "futtest2")
+paths <- c("present", 
+           "BCC.CSM2.MR_ssp245_2021.2040", 
+           "BCC.CSM2.MR_ssp585_2021.2040", 
+           "CanESM5_ssp245_2021.2040", 
+           "CanESM5_ssp585_2021.2040", 
+           "CNRM.CM6.1_ssp245_2021.2040", 
+           "CNRM.CM6.1_ssp585_2021.2040", 
+           "CNRM.ESM2.1_ssp245_2021.2040", 
+           "CNRM.ESM2.1_ssp585_2021.2040", 
+           "MIROC.ES2L_ssp245_2021.2040", 
+           "MIROC.ES2L_ssp585_2021.2040", 
+           "MIROC6_ssp245_2021.2040", 
+           "MIROC6_ssp585_2021.2040")
 
 for(i in 1:length(study_sp)){
   
   # selected algorithms for this species
-  selected_algo <- read_csv(paste0("./outputs/models/", study_sp[i], 
+  selected_algo <- read_csv(paste0(run_name, study_sp[i], 
                                    "/present/final_models/", study_sp[i], 
                                    "_external_validation.csv")) %>%
     filter(pass == 1) %>%
@@ -87,7 +101,7 @@ for(i in 1:length(study_sp)){
   selected_algo <- as.character(selected_algo)
   
   # weights for ensemble
-  w <- read_csv(paste0("./outputs/models/", study_sp[i], 
+  w <- read_csv(paste0(run_name, study_sp[i], 
                        "/present/final_models/", study_sp[i], 
                        "_external_validation.csv")) %>%
     filter(pass == 1) %>%
@@ -96,19 +110,19 @@ for(i in 1:length(study_sp)){
   for(j in paths){
     
     # load final models for this species, only selected algo
-    raw_mean_models <- list.files(path = paste0("./outputs/models/", study_sp[i], j,
+    raw_mean_models <- list.files(path = paste0(run_name, study_sp[i], j,
                                                 "/final_models"),
                                   pattern = "raw_mean.tif",
                                   full.names = TRUE) %>%
       stack()
     
-    raw_mean_th_models <- list.files(path = paste0("./outputs/models/", study_sp[i], j,
+    raw_mean_th_models <- list.files(path = paste0(run_name, study_sp[i], j,
                                                    "/final_models"),
                                      pattern = "raw_mean_th.tif",
                                      full.names = TRUE) %>%
       stack()
     
-    algo <- read_csv(paste0("./outputs/models/", study_sp[i], 
+    algo <- read_csv(paste0(run_name, study_sp[i], 
                             "/present/final_models/", study_sp[i], 
                             "_mean_statistics.csv")) %>%
       pull(algorithm)
@@ -143,7 +157,7 @@ for(i in 1:length(study_sp)){
              sensitivity = ones/(zeros+ones))
     
     # save output maps and table
-    ensemble_folder <- paste0("./outputs/models/", study_sp[i], "/", paths[i], 
+    ensemble_folder <- paste0(run_name, study_sp[i], "/", j, 
                               "/ensemble/")
     if (!file.exists(ensemble_folder)) {
       dir.create(ensemble_folder)

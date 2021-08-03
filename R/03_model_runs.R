@@ -10,21 +10,23 @@ library(readr)
 library(modleR)
 
 
-# loading occs and predictors ---------------------------------------------
+# define settings of this run ---------------------------------------------
 
-## species occurrence
-occ_hist <- read_csv("./data/01_occ_hist.csv")
-occ_hist_100 <- read_csv("./data/01_occ_full_100km.csv")
+## species occurrence set
+occ <- read_csv("./data/01_occ_hist_100km.csv")
 
-study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
-              "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
-              "L_intermedia", "L_complexa", "L_wellcomei")
+# paths to layers
+layer_path <- c("C:/layers/wc2_current_SA_2.5/")
 
-# set to be modelled
-occs <- occ_hist_100
+future_layers <- c("C:/layers/wc2_cmip6_SA_2.5/")
+
+# name a folder to save outputs of this run
+run_name <- c("./outputs/models_hist_100km/")
 
 
-## selected predictors
+# load data ---------------------------------------------------------------
+
+# selected predictors and extent
 
 wc_sel_names <- read_lines("./data/02_selected_variable_names.txt")
 ext <- readRDS("./data/02_study_extent.rds")
@@ -35,26 +37,29 @@ ext <- readRDS("./data/02_study_extent.rds")
 #  stack() %>%
 #  crop(ext)
 
-layer_path <- c("C:/layers/wc2_current_SA_2.5/")
-
-wc <- list.files(layer_path, pattern = "_SA.asc", full.names = TRUE) %>%
+wc <- list.files(layer_path, pattern = "tif", full.names = TRUE) %>%
   stack() %>%
   subset(wc_sel_names) %>%
   crop(ext)
 
 # projections
-crs.wgs84 <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")  # geographical, WGS84
+## geographical, WGS84
+crs.wgs84 <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")  
+
+## projected, South America Albers Equal Area Conic
 crs.albers <- CRS("+proj=aea +lat_1=-5 +lat_2=-42 +lat_0=-32 +lon_0=-60
-                  +x_0=0 +y_0=0 +ellps=aust_SA 
-                  +units=m +no_defs") # projected, SA Albers Equal Area Conic
+                  +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs") 
 
+study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
+              "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
+              "L_intermedia", "L_complexa", "L_wellcomei")
 
-# modleR 1/4: Setup data --------------------------------------------------
+# modleR 1/3: Setup data --------------------------------------------------
 
 for(i in 1:length(study_sp)){
   
   # getting only occurrences for this species
-  species_df <- occs[occs$species == study_sp[i], ]
+  species_df <- occ[occ$species == study_sp[i], ]
   
   # creating model calibration area for this species
   coords <- species_df[ ,2:3]
@@ -74,7 +79,7 @@ for(i in 1:length(study_sp)){
   setup_sdmdata(species_name = study_sp[i],
                 occurrences = as.data.frame(species_df),
                 predictors = wc, # set of predictors for running the models
-                models_dir = "./outputs/models/", # folder to save partitions
+                models_dir = run_name, # folder to save partitions
                 seed = 123, # set seed for random generation of pseudoabsences
                 buffer_type = "user", # buffer type for sampling pseudoabsences
                 buffer_shape = mcp_buf, # buffer created in previous step
@@ -91,18 +96,19 @@ for(i in 1:length(study_sp)){
 }
 
 
+# modleR 2/3: model calibration -------------------------------------------
 
-# modleR 2/4: model calibration -------------------------------------------
+### obs: rodar brt em separado, porque não vai rolar pra algumas espécies
 
-
+start <- Sys.time()
 for(i in 1:length(study_sp)){
   
   # run selected algorithms for each partition
   do_many(species_name = study_sp[i],
           predictors = wc,
-          models_dir = "./outputs/models",
+          models_dir = run_name,
           project_model = TRUE, # project models into other sets of variables
-          proj_data_folder = "C:/layers/future_test", # folder with GCM projection variables
+          proj_data_folder = future_layers, # folder with GCM projection variables
           png_partitions = TRUE, # save minimaps in png?
           write_bin_cut = FALSE, # save binary and cut outputs?
           dismo_threshold = "spec_sens", # threshold rule for binary outputs
@@ -112,11 +118,13 @@ for(i in 1:length(study_sp)){
           maxent = TRUE,
           rf = TRUE,
           svmk = TRUE,
-          brt = TRUE)
+          #brt = TRUE
+          )
 }
+end <- Sys.time()
+running_time <- end - start
 
-
-# modleR 3/4: final models by algo ----------------------------------------
+# modleR 3/3: final models by algo ----------------------------------------
 
 # projections path names (GCMs)
 paths <- c("present", "futtest1", "futtest2")
@@ -127,7 +135,7 @@ for(i in 1:length(study_sp)){
     
     #combine partitions into one final model per algorithm
     final_model(species_name = study_sp[i],
-                models_dir = "./outputs/models/",
+                models_dir = run_name,
                 scale_models = TRUE, # convert model outputs to 0-1
                 which_models = c("raw_mean", "raw_mean_th"), # mean outputs by algo and binarise them using the mean of maxTSS thresholds of each partition
                 mean_th_par = "spec_sens",
