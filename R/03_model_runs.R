@@ -139,31 +139,3 @@ for(i in 1:length(study_sp)){
   }
   
 }
-
-# modleR 4/4: model ensemble ----------------------------------------------
-
-# select algorithms to do the ensemble models
-#algo <- c("glm", "maxent", "rf", "svme", "brt")
-
-for(i in 1:length(study_sp)){
-  
-  # getting only occurrences for this species
-  species_df <- occs[occs$species == study_sp[i], ]
-  
-  #generate ensemble models, combining final models from all algorithms
-  ensemble_model(species_name = study_sp[i],
-                  occurrences = species_df,
-                  #algorithms = algo,
-                  models_dir = "./outputs/models/",
-                  performance_metric = "TSSmax",
-                  proj_dir = "present",
-                  which_ensemble = c("weighted_average", "consensus"),
-                  which_final = c("raw_mean", "bin_consensus"),
-                  #ensemble_dir = "ensemble_five_algo",
-                  ensemble_dir = "ensemble",
-                  consensus_level = 0.5,
-                  png_ensemble = TRUE,
-                  uncertainty = TRUE,
-                  overwrite = TRUE)
-}
-
