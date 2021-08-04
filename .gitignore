@@ -38,7 +38,5 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-# model outputs in raster or png formats
-outputs/**/*.tif
-outputs/**/*.png
-
+# model outputs
+outputs/

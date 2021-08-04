@@ -1,2 +1,0 @@
-"species_name","original_predictors","select_variables","original.n","original.n.back","buffer_type","dist_buf","seed","res.x","res.y","clean_dupl","clean_nas","clean_uni","geo_filt","geo_filt_dist","models_dir","partition","boot_proportion","boot_n","cv_partitions","cv_n","selected_predictors","final.n","final.n.back"
-"L_longipalpis","prec_01_SA-prec_02_SA-prec_03_SA-prec_04_SA",FALSE,182,1820,"user",NA,123,0.166666666666667,0.166666666666667,FALSE,TRUE,TRUE,FALSE,NA,"./outputs/models/","crossvalidation",0.1,10,5,1,"prec_01_SA-prec_02_SA-prec_03_SA-prec_04_SA",182,1820
