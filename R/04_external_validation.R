@@ -11,7 +11,7 @@ library(modleR)
 # load data and set values ------------------------------------------------
 
 # load validation dataset
-valid <- read_csv("./data/01_occ_hist_100km_valid.csv")
+valid <- read_csv("./data/01_occ_hist_10km_valid.csv")
 
 # species names
 study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
@@ -25,7 +25,7 @@ sens_thres <- 0.7
 consensus_level <- 0.5
 
 # name the folder where previous final models were saved
-run_name <- c("./outputs/models_hist_100km/")
+run_name <- c("./outputs/models_hist_10km/")
 
 
 # calculate sensitivity/omission ------------------------------------------
@@ -82,6 +82,7 @@ for(i in 1:length(study_sp)){
                                      "/present/final_models/", study_sp[i],
                                      "_external_validation.csv"))
 }
+
 summary_valid <- data.table::rbindlist(summary_valid) %>%
   relocate(predicted_as_abs, .before = sensitivity) %>%
   relocate(predicted_as_pres, .before = predicted_as_abs) %>%

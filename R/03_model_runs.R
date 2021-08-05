@@ -13,7 +13,7 @@ library(modleR)
 # define settings of this run ---------------------------------------------
 
 ## species occurrence set
-occ <- read_csv("./data/01_occ_hist_100km.csv")
+occ <- read_csv("./data/01_occ_hist_10km.csv")
 
 # paths to layers
 layer_path <- c("C:/layers/wc2_current_SA_2.5/")
@@ -21,7 +21,7 @@ layer_path <- c("C:/layers/wc2_current_SA_2.5/")
 future_layers <- c("C:/layers/wc2_cmip6_SA_2.5/")
 
 # name a folder to save outputs of this run
-run_name <- c("./outputs/models_hist_100km/")
+run_name <- c("./outputs/models_hist_10km/")
 
 
 # load data ---------------------------------------------------------------
@@ -98,6 +98,7 @@ for(i in 1:length(study_sp)){
 
 ### obs: rodar brt em separado, porque não vai rolar pra algumas espécies
 
+start <- Sys.time()
 for(i in 1:length(study_sp)){
   
   # run selected algorithms for each partition
@@ -128,7 +129,7 @@ for(i in 1:length(study_sp)){
 # projections path names (GCMs)
 #paths <- c("present", "futtest1", "futtest2")
 
-#start <- Sys.time()
+
 for(i in 1:length(study_sp)){
   
   #for(path in paths){
@@ -147,6 +148,5 @@ for(i in 1:length(study_sp)){
   #}
   
 }
-#end <- Sys.time()
-#running_time <- end - start
-#beepr::beep(3)
+end <- Sys.time()
+running_time <- end - start
