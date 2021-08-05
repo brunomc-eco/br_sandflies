@@ -10,7 +10,6 @@ library(modleR)
 
 # load data and set values ------------------------------------------------
 
-
 # load validation dataset
 valid <- read_csv("./data/01_occ_hist_100km_valid.csv")
 
@@ -20,13 +19,14 @@ study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani",
               "L_intermedia", "L_complexa", "L_wellcomei")
 
 # set sensitivity threshold for keeping algos in the ensemble
-sens_thres <- 0.8
+sens_thres <- 0.7
 
 # set consensus level for ensemble binary
 consensus_level <- 0.5
 
 # name the folder where previous final models were saved
 run_name <- c("./outputs/models_hist_100km/")
+
 
 # calculate sensitivity/omission ------------------------------------------
 
@@ -52,42 +52,46 @@ for(i in 1:length(study_sp)){
   coordinates(valid_sp) <- c('lon', 'lat')
   
   # extract predicted values
-  vals <- extract(final_models, valid_sp, df = TRUE) %>%
+  vals <- raster::extract(final_models, valid_sp, df = TRUE) %>%
     dplyr::select(-"ID")
   
-  # calculate sensitivity
-  t <- apply(vals, 2, table) %>%
-    t() %>%
-    as_tibble() %>%
-    rename(zeros = "0",
-           ones = "1") %>%
-    mutate(algo = algo,
-           sensitivity = ones/(zeros+ones),
-           pass = ifelse(sensitivity > sens_thres, 1, 0))
+  
+  # calculate sensitivity ##############################
+ 
+  t <- data.frame(predicted_as_abs = rep(NA, length(algo)),
+                  predicted_as_pres = rep(NA, length(algo)))
+  for(j in 1:length(algo)){
+    t[j, 1] <- count(filter(vals, vals[j] == 0))
+    t[j, 2] <- count(filter(vals, vals[j] == 1))
+  }
+  t <- as_tibble(t) %>%
+    mutate(species = rep(study_sp[i], length(algo)),
+           algo = algo,
+           sensitivity = predicted_as_pres/(predicted_as_abs+predicted_as_pres),
+           pass = ifelse(sensitivity > sens_thres, 1, 0)) 
+  
   
   write_csv(t, file = paste0(run_name, study_sp[i], 
                              "/present/final_models/", study_sp[i], 
                              "_external_validation.csv"))
 }
 
+summary_valid <- list()
+for(i in 1:length(study_sp)){
+  summary_valid[[i]] <- read_csv(paste0(run_name, study_sp[i], 
+                                     "/present/final_models/", study_sp[i],
+                                     "_external_validation.csv"))
+}
+summary_valid <- data.table::rbindlist(summary_valid) %>%
+  relocate(predicted_as_abs, .before = sensitivity) %>%
+  relocate(predicted_as_pres, .before = predicted_as_abs) %>%
+  mutate(total_valid_records = predicted_as_pres + predicted_as_abs) %>%
+  relocate(total_valid_records, .before = predicted_as_pres)
 
+write_csv(summary_valid, file = paste0(run_name, "summary_valid.csv"))
 
 # ensemble based on sensitivity -------------------------------------------
 
-# projections path names (GCMs)
-paths <- c("present", 
-           "BCC.CSM2.MR_ssp245_2021.2040", 
-           "BCC.CSM2.MR_ssp585_2021.2040", 
-           "CanESM5_ssp245_2021.2040", 
-           "CanESM5_ssp585_2021.2040", 
-           "CNRM.CM6.1_ssp245_2021.2040", 
-           "CNRM.CM6.1_ssp585_2021.2040", 
-           "CNRM.ESM2.1_ssp245_2021.2040", 
-           "CNRM.ESM2.1_ssp585_2021.2040", 
-           "MIROC.ES2L_ssp245_2021.2040", 
-           "MIROC.ES2L_ssp585_2021.2040", 
-           "MIROC6_ssp245_2021.2040", 
-           "MIROC6_ssp585_2021.2040")
 
 for(i in 1:length(study_sp)){
   
@@ -107,7 +111,7 @@ for(i in 1:length(study_sp)){
     filter(pass == 1) %>%
     pull(sensitivity)
   
-  for(j in paths){
+  #for(j in paths){
     
     # load final models for this species, only selected algo
     raw_mean_models <- list.files(path = paste0(run_name, study_sp[i], j,
@@ -168,5 +172,5 @@ for(i in 1:length(study_sp)){
     
     write_csv(t, file = paste0(ensemble_folder, study_sp[i], "_ensemble_validation.csv"))
     
-  }
+  #}
 }
