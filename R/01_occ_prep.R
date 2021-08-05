@@ -63,6 +63,22 @@ visual_check(occ_full)
 visual_check(occ_hist)
 
 
+# exploring coord_prec
+
+occ_hist_prec1 <- occ_hist %>%
+  filter(coord.prec == 1)
+
+occ_hist_prec2 <- occ_hist %>%
+  filter(coord.prec == 2)
+
+occ_hist_prec3 <- occ_hist %>%
+  filter(coord.prec == 3)
+
+occ_hist_prec12 <- occ_hist %>%
+  filter(coord.prec != 3)
+
+visual_check(occ_hist_prec12)
+
 # saving formatted data
 write_csv(occ_full, "./data/01_occ_full.csv")
 write_csv(occ_hist, "./data/01_occ_hist.csv")
@@ -106,7 +122,6 @@ occ_hist_10km_valid <- occ_hist %>%
 
 occ_hist_100km_valid <- occ_hist %>%
   anti_join(occ_hist_100km)
-
 
 # counting records --------------------------------------------------------
 

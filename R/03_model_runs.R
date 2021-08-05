@@ -72,8 +72,8 @@ for(i in 1:length(study_sp)){
     spTransform(crs.wgs84) %>% #convert back into wgs84
     SpatialPolygonsDataFrame(data = data.frame("val" = 1, row.names = "buffer"))
   
-  # choosing the type of partition depending on the number of records
-  partition_type <- ifelse(nrow(species_df) > 50, "crossvalidation", "bootstrap")
+  # note on the number of crossvalidation partitions
+  # modleR will automatically do jackknife if number of records is <= 10
   
   #running setup_sdmdata
   setup_sdmdata(species_name = study_sp[i],
@@ -88,11 +88,9 @@ for(i in 1:length(study_sp)){
                 clean_uni = TRUE, # remove records falling at the same pixel
                 png_sdmdata = TRUE, # save minimaps in png
                 n_back = nrow(species_df) * 10, # number of pseudoabsences
-                partition_type = partition_type,
+                partition_type = "crossvalidation",
                 cv_partitions = 10, # number of folds for crossvalidation
-                cv_n = 1,# number of crossvalidation runs
-                boot_n = 10, # number of bootstrap runs
-                boot_proportion = 0.1) # number of partitions in the bootstrap
+                cv_n = 1)# number of crossvalidation runs
 }
 
 
@@ -100,15 +98,15 @@ for(i in 1:length(study_sp)){
 
 ### obs: rodar brt em separado, porque não vai rolar pra algumas espécies
 
-start <- Sys.time()
 for(i in 1:length(study_sp)){
   
   # run selected algorithms for each partition
   do_many(species_name = study_sp[i],
           predictors = wc,
           models_dir = run_name,
-          project_model = TRUE, # project models into other sets of variables
-          proj_data_folder = future_layers, # folder with GCM projection variables
+          project_model = FALSE, # gcm projections will be done later
+          #proj_data_folder = future_layers, # folder with GCM projection variables
+          write_rda = TRUE, # will need this for the gcm projections
           png_partitions = TRUE, # save minimaps in png?
           write_bin_cut = FALSE, # save binary and cut outputs?
           dismo_threshold = "spec_sens", # threshold rule for binary outputs
@@ -121,17 +119,19 @@ for(i in 1:length(study_sp)){
           #brt = TRUE
           )
 }
-end <- Sys.time()
-running_time <- end - start
+
+
+
 
 # modleR 3/3: final models by algo ----------------------------------------
 
 # projections path names (GCMs)
-paths <- c("present", "futtest1", "futtest2")
+#paths <- c("present", "futtest1", "futtest2")
 
+#start <- Sys.time()
 for(i in 1:length(study_sp)){
   
-  for(path in paths){
+  #for(path in paths){
     
     #combine partitions into one final model per algorithm
     final_model(species_name = study_sp[i],
@@ -139,11 +139,14 @@ for(i in 1:length(study_sp)){
                 scale_models = TRUE, # convert model outputs to 0-1
                 which_models = c("raw_mean", "raw_mean_th"), # mean outputs by algo and binarise them using the mean of maxTSS thresholds of each partition
                 mean_th_par = "spec_sens",
-                proj_dir = path,
+                #proj_dir = path,
                 #consensus_level = 0.5, # proportion of models in the binary consensus
                 png_final = TRUE,
                 overwrite = TRUE)
     
-  }
+  #}
   
 }
+#end <- Sys.time()
+#running_time <- end - start
+#beepr::beep(3)
