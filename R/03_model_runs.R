@@ -13,23 +13,21 @@ library(modleR)
 # define settings of this run ---------------------------------------------
 
 ## species occurrence set
-occ <- read_csv("./data/01_occ_hist_10km.csv")
+occ <- read_csv("./data/01_occ_hist_100km.csv")
 
 # paths to layers
-layer_path <- c("C:/layers/wc2_current_SA_2.5/")
-
-future_layers <- c("C:/layers/wc2_cmip6_SA_2.5/")
+layer_path <- c("C:/layers/raster/worldclim2_historical/")
 
 # name a folder to save outputs of this run
-run_name <- c("./outputs/models_hist_10km/")
+run_name <- c("./outputs/models_hist_100km/")
 
 
 # load data ---------------------------------------------------------------
 
 # selected predictors and extent
 
-wc_sel_names <- read_lines("./data/02_selected_variable_names.txt")
-ext <- readRDS("./data/02_study_extent.rds")
+wc_sel_names <- read_lines("./outputs/02_selected_variable_names.txt")
+ext <- readRDS("./outputs/02_study_extent.rds")
 
 #test
 #layer_path <- c("C:/layers/wc2_test_prec_SA_10/")
@@ -54,6 +52,7 @@ study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani",
               "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
               "L_intermedia", "L_complexa", "L_wellcomei")
 
+
 # modleR 1/3: Setup data --------------------------------------------------
 
 for(i in 1:length(study_sp)){
@@ -66,13 +65,12 @@ for(i in 1:length(study_sp)){
   coordinates(coords) <- c("lon", "lat")
   proj4string(coords) <- crs.wgs84  # define original projection - wgs84
   coords <- spTransform(coords, crs.albers)  # project to Albers Equal Area
-  mcp <- gConvexHull(coords) # create minimum convex polygon
+  mcp <- gConvexHull(coords) # create convex hull of occurrence records
   mcp_buf <- mcp %>%
-    gBuffer(width = gArea(mcp)*2e-07) %>% # draw a buffer of 20% in km around of the minimum convex polygon (Barve et al. 2011)
+    gBuffer(width = gArea(mcp)*2e-07) %>% # draw a buffer of +20% of the convex hull (Barve et al. 2011)
     spTransform(crs.wgs84) %>% #convert back into wgs84
     SpatialPolygonsDataFrame(data = data.frame("val" = 1, row.names = "buffer"))
   
-  # note on the number of crossvalidation partitions
   # modleR will automatically do jackknife if number of records is <= 10
   
   #running setup_sdmdata
@@ -88,17 +86,16 @@ for(i in 1:length(study_sp)){
                 clean_uni = TRUE, # remove records falling at the same pixel
                 png_sdmdata = TRUE, # save minimaps in png
                 n_back = nrow(species_df) * 10, # number of pseudoabsences
-                partition_type = "crossvalidation",
+                partition_type = "crossvalidation", 
                 cv_partitions = 10, # number of folds for crossvalidation
                 cv_n = 1)# number of crossvalidation runs
 }
 
 
+
 # modleR 2/3: model calibration -------------------------------------------
 
-### obs: rodar brt em separado, porque não vai rolar pra algumas espécies
 
-start <- Sys.time()
 for(i in 1:length(study_sp)){
   
   # run selected algorithms for each partition
@@ -106,47 +103,55 @@ for(i in 1:length(study_sp)){
           predictors = wc,
           models_dir = run_name,
           project_model = FALSE, # gcm projections will be done later
-          #proj_data_folder = future_layers, # folder with GCM projection variables
           write_rda = TRUE, # will need this for the gcm projections
           png_partitions = TRUE, # save minimaps in png?
           write_bin_cut = FALSE, # save binary and cut outputs?
           dismo_threshold = "spec_sens", # threshold rule for binary outputs
-          equalize = TRUE, # equalize numbers of presence and pseudoabsences for random forest and brt
+          equalize = TRUE, # equalize numbers of pres and pseudoabs for random forest
           bioclim = TRUE,
           glm = TRUE,
           maxent = TRUE,
           rf = TRUE,
-          svmk = TRUE,
-          #brt = TRUE
-          )
+          svmk = TRUE)
 }
 
 
+# L. cruzi, L. complexa and L. wellcomei did not have enough unique records to run BRT,
+# so using the following species subset to run BRT for them:
+
+study_sp_brt <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
+                  "L_umbratilis", "L_flaviscutellata", "L_intermedia")
+
+
+for(i in 1:length(study_sp_brt)){
+  
+  # run selected algorithms for each partition
+  do_many(species_name = study_sp_brt[i],
+          predictors = wc,
+          models_dir = run_name,
+          project_model = FALSE, # gcm projections will be done later
+          write_rda = TRUE, # will need this for the gcm projections
+          png_partitions = TRUE, # save minimaps in png?
+          write_bin_cut = FALSE, # save binary and cut outputs?
+          dismo_threshold = "spec_sens", # threshold rule for binary outputs
+          equalize = FALSE, # do not equalize numbers of pres and pseudoabs for brt
+          brt = TRUE)
+}
 
 
 # modleR 3/3: final models by algo ----------------------------------------
 
-# projections path names (GCMs)
-#paths <- c("present", "futtest1", "futtest2")
-
 
 for(i in 1:length(study_sp)){
   
-  #for(path in paths){
-    
-    #combine partitions into one final model per algorithm
-    final_model(species_name = study_sp[i],
-                models_dir = run_name,
-                scale_models = TRUE, # convert model outputs to 0-1
-                which_models = c("raw_mean", "raw_mean_th"), # mean outputs by algo and binarise them using the mean of maxTSS thresholds of each partition
-                mean_th_par = "spec_sens",
-                #proj_dir = path,
-                #consensus_level = 0.5, # proportion of models in the binary consensus
-                png_final = TRUE,
-                overwrite = TRUE)
-    
-  #}
-  
+  #combine partitions into one final model per algorithm
+  final_model(species_name = study_sp[i],
+              models_dir = run_name,
+              scale_models = TRUE, # convert model outputs to 0-1
+              which_models = c("raw_mean", "raw_mean_th"), # mean outputs by algo and 
+              # binarise them using the mean of maxTSS thresholds of each partition
+              mean_th_par = "spec_sens",
+              png_final = TRUE,
+              overwrite = TRUE)
+
 }
-end <- Sys.time()
-running_time <- end - start

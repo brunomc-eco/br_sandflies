@@ -12,7 +12,7 @@ library(caret)
 
 # based on total distribution of occs + 2º
 
-points <- read_csv("./data/01_occ_full.csv")
+points <- read_csv("./data/01_occ_hist.csv")
 coords <- points[ ,2:3]
 coordinates(coords) <- c("lon", "lat")
 proj4string(coords) <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")
@@ -23,17 +23,18 @@ extent(coords)
 
 ext <- extent(-83, -34, -34, 13) 
 
-saveRDS(ext, file = "./data/02_study_extent.rds")
+saveRDS(ext, file = "./outputs/02_study_extent.rds")
 
 
 # load predictors ---------------------------------------------------------
 
-layer_path <- c("C:/layers/wc2_current_SA_2.5/")
+layer_path <- c("C:/layers/raster/worldclim2_historical/")
 
-wc <- list.files(layer_path, pattern = "_SA.asc", full.names = TRUE) %>%
+wc <- list.files(layer_path, pattern = ".tif", full.names = TRUE) %>%
   stack() %>%
   # exclude biovars that combine temp and prec (bio8, bio9, bio18, bio19)
-  dropLayer(c("bio8_SA", "bio9_SA", "bio18_SA", "bio19_SA"))
+  dropLayer(c("wc2.1_2.5m_bio_8", "wc2.1_2.5m_bio_9", 
+              "wc2.1_2.5m_bio_18", "wc2.1_2.5m_bio_19"))
 
 
 # select uncorrelated variables -------------------------------------------
@@ -46,11 +47,13 @@ points <- read_csv("./data/01_occ_hist.csv") %>%
 vals <- raster::extract(wc, points)
 
 # check which variables are correlated
-exclude_vars <- caret::findCorrelation(cor(vals, method = 'spearman'), 
-                                       cutoff = 0.8, names = TRUE)
+exclude_vars <- findCorrelation(cor(vals, method = 'spearman'),
+                                cutoff = 0.8, names = TRUE)
 
 # selecting variables with lower correlation
 wc_sel <- wc[[which(!names(wc) %in% exclude_vars)]]
 
+names(wc_sel)
+
 # save txt with selected variable names
-write_lines(names(wc_sel), file = "./data/02_selected_variable_names.txt")
+write_lines(names(wc_sel), file = "./outputs/02_selected_variable_names.txt")

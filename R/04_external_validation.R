@@ -11,7 +11,7 @@ library(modleR)
 # load data and set values ------------------------------------------------
 
 # load validation dataset
-valid <- read_csv("./data/01_occ_hist_10km_valid.csv")
+valid <- read_csv("./data/01_occ_hist_100km_valid.csv")
 
 # species names
 study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
@@ -19,13 +19,13 @@ study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani",
               "L_intermedia", "L_complexa", "L_wellcomei")
 
 # set sensitivity threshold for keeping algos in the ensemble
-sens_thres <- 0.7
+sens_thres <- 0.8
 
 # set consensus level for ensemble binary
-consensus_level <- 0.5
+consensus_level <- 0.5 # majority rule
 
 # name the folder where previous final models were saved
-run_name <- c("./outputs/models_hist_10km/")
+run_name <- c("./outputs/models_hist_100km/")
 
 
 # calculate sensitivity/omission ------------------------------------------
@@ -89,4 +89,4 @@ summary_valid <- data.table::rbindlist(summary_valid) %>%
   mutate(total_valid_records = predicted_as_pres + predicted_as_abs) %>%
   relocate(total_valid_records, .before = predicted_as_pres)
 
-write_csv(summary_valid, file = paste0(run_name, "summary_valid.csv"))
+write_csv(summary_valid, file = paste0(run_name, "04_summary_valid.csv"))
