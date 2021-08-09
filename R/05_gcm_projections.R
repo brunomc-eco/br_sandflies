@@ -1,4 +1,4 @@
-# Projecting selected models to different GCMs and scenarios
+# Projecting selected models into different GCMs and scenarios
 # Bruno M. Carvalho
 # brunomc.eco@gmail.com
 
@@ -6,6 +6,7 @@ library(readr)
 library(dplyr)
 library(raster)
 library(modleR)
+library(gbm)
 
 # load data and set values ------------------------------------------------
 
@@ -17,106 +18,107 @@ study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani",
 # name the folder where previous final models were saved
 run_name <- c("./outputs/models_hist_100km/")
 
+# name the folder with gcm layers
+gcm_folder <- c("C:/layers/raster/worldclim2_cmip6_2.5/")
+
+# selected variables and extent
+wc_sel_names <- read_lines("./outputs/02_selected_variable_names.txt")
+ext <- readRDS("./outputs/02_study_extent.rds")
+
+# scenario and gcm names
+gcm_names <- c("BCC-CSM2-MR", "CanESM5", "CNRM-CM6-1", "CNRM-ESM2-1",
+               "IPSL-CM6A-LR", "MIROC6_ssp126", "MIROC-ES2L", "MRI-ESM2-0")
+
+ssp_names <- c("ssp126_2041-2060", "ssp245_2041-2060", "ssp585_2041-2060")
+
 
 
 # project selected models -------------------------------------------------
 
 
-
-# get validation results for this species
-valid <- read_csv(paste0(run_name, study_sp[i], 
-                         "/present/final_models/", study_sp[i], 
-                         "_external_validation.csv"))
-
-
-
-
-
-
-
-# projections path names (GCMs)
-paths <- c("present", 
-           "BCC.CSM2.MR_ssp245_2021.2040", 
-           "BCC.CSM2.MR_ssp585_2021.2040", 
-           "CanESM5_ssp245_2021.2040", 
-           "CanESM5_ssp585_2021.2040", 
-           "CNRM.CM6.1_ssp245_2021.2040", 
-           "CNRM.CM6.1_ssp585_2021.2040", 
-           "CNRM.ESM2.1_ssp245_2021.2040", 
-           "CNRM.ESM2.1_ssp585_2021.2040", 
-           "MIROC.ES2L_ssp245_2021.2040", 
-           "MIROC.ES2L_ssp585_2021.2040", 
-           "MIROC6_ssp245_2021.2040", 
-           "MIROC6_ssp585_2021.2040")
-
-# testing project later
-
-load("./outputs/models_hist_100km/L_neivai/present/partitions/bioclim_model_L_neivai_1_5.rda")
-
-pred_proj <- raster::stack(list.files("C:/layers/wc2_cmip6_SA_2.5/BCC.CSM2.MR_ssp245_2021.2040/", full.names = TRUE))
-mod_proj_cont <- dismo::predict(pred_proj, mod)
-mod_proj_bin <- mod_proj_cont > th_mod
-
-proj_data_folder = "future_layers"
-pfiles <- list.dirs(proj_data_folder, recursive = FALSE)
-for (proje in pfiles) {
-  v <- strsplit(proje, "/")
-  name_proj <- v[[1]][length(v[[1]])]
-  projection_folder <- paste0(models_dir, "/", 
-                              species_name, "/", name_proj, "/partitions")
-  if (file.exists(projection_folder) == FALSE) 
-    dir.create(paste0(projection_folder), recursive = TRUE, 
-               showWarnings = FALSE)
-  pred_proj <- raster::stack(list.files(proje, 
-                                        full.names = TRUE))
-  pred_proj <- raster::subset(pred_proj, names(predictors))
-  message(name_proj)
-  message("projecting models")
-  if (algorithm == "brt") {
-    mod_proj_cont <- dismo::predict(pred_proj, 
-                                    mod, n.trees = n.trees)
-  }
-  if (algorithm == "glm") {
-    mod_proj_cont <- raster::predict(pred_proj, 
-                                     mod, type = "response")
-  }
-  if (algorithm %in% c("bioclim", "domain", 
-                       "maxent", "mahal")) {
-    mod_proj_cont <- dismo::predict(pred_proj, 
-                                    mod)
-  }
-  if (algorithm %in% c("svmk", "maxnet", 
-                       "svme", "rf")) {
-    mod_proj_cont <- raster::predict(pred_proj, 
-                                     mod)
-  }
-  if (write_bin_cut == TRUE) {
-    mod_proj_bin <- mod_proj_cont > th_mod
-    mod_proj_cut <- mod_proj_bin * mod_proj_cont
-  }
-  if (class(mask) == "SpatialPolygonsDataFrame") {
-    mod_proj_cont <- crop_model(mod_proj_cont, 
-                                mask)
-    mod_proj_bin <- crop_model(mod_proj_bin, 
-                               mask)
-    mod_proj_cut <- crop_model(mod_proj_cut, 
-                               mask)
-  }
-  message("writing projected models raster")
-  raster::writeRaster(x = mod_proj_cont, filename = paste0(projection_folder, 
-                                                           "/", algorithm, "_cont_", species_name, 
-                                                           "_", i, "_", g, ".tif"), 
-                      overwrite = TRUE)
-  if (write_bin_cut == TRUE) {
-    raster::writeRaster(x = mod_proj_bin, filename = paste0(projection_folder, 
-                                                            "/", algorithm, "_bin_", 
-                                                            species_name, "_", i, "_", 
-                                                            g, ".tif"), overwrite = TRUE)
-    raster::writeRaster(x = mod_proj_cut, filename = paste0(projection_folder, 
-                                                            "/", algorithm, "_cut_", 
-                                                            species_name, "_", i, "_", 
-                                                            g, ".tif"), overwrite = TRUE)
+for(g in 1:length(ssp_names)){
+  
+  for(h in 1:length(gcm_names)){
+    
+    pred_gcm <- stack(paste0(gcm_folder, "wc2.1_2.5m_bioc_", gcm_names[h], "_", ssp_names[g], ".tif"))
+    
+    names(pred_gcm) <- c("wc2.1_2.5m_bio_1", "wc2.1_2.5m_bio_2", "wc2.1_2.5m_bio_3",
+                         "wc2.1_2.5m_bio_4", "wc2.1_2.5m_bio_5", "wc2.1_2.5m_bio_6",
+                         "wc2.1_2.5m_bio_7", "wc2.1_2.5m_bio_8", "wc2.1_2.5m_bio_9",
+                         "wc2.1_2.5m_bio_10", "wc2.1_2.5m_bio_11", "wc2.1_2.5m_bio_12",
+                         "wc2.1_2.5m_bio_13", "wc2.1_2.5m_bio_14", "wc2.1_2.5m_bio_15",
+                         "wc2.1_2.5m_bio_16", "wc2.1_2.5m_bio_17", "wc2.1_2.5m_bio_18",
+                         "wc2.1_2.5m_bio_19")
+    
+    pred_gcm <- subset(pred_gcm, wc_sel_names) %>%
+      crop(ext)
+    
+    for(i in 1:length(study_sp)){
+      
+      # selected algorithms for this species
+      selected_algo <- read_csv(paste0(run_name, study_sp[i], 
+                                       "/present/final_models/", study_sp[i], 
+                                       "_external_validation.csv")) %>%
+        filter(pass == 1) %>%
+        pull(algo)
+      
+      
+      for(j in 1:length(selected_algo)){
+        
+        # load model objects from selected algorithm
+        proj_partitions <- list.files(path = paste0(run_name, study_sp[i], "/present/partitions/"), 
+                                      pattern = paste0(selected_algo[j], "_model"), 
+                                      full.names = TRUE)
+        
+        partitions <- raster::stack()
+        for(k in 1:length(proj_partitions)){
+          
+          load(proj_partitions[k])
+          
+          if (selected_algo[j] == "brt") {
+            mod_proj_cont <- dismo::predict(pred_gcm, mod, n.trees = mod$n.trees)
+          }
+          if (selected_algo[j] == "glm") {
+            mod_proj_cont <- raster::predict(pred_gcm, mod, type = "response")
+          }
+          if (selected_algo[j] %in% c("bioclim", "domain", "maxent", "mahal")) {
+            mod_proj_cont <- dismo::predict(pred_gcm, mod)
+          }
+          if (selected_algo[j] %in% c("svmk", "maxnet", "svme", "rf")) {
+            mod_proj_cont <- raster::predict(pred_gcm, mod)
+          }
+          
+          # saving partitions
+          partitions <- addLayer(partitions, mod_proj_cont)
+          
+        }
+        
+        final_raw_mean <- mean(partitions)
+        
+        selected_thres <- read_csv(paste0(run_name, study_sp[i], 
+                                         "/present/final_models/", study_sp[i], 
+                                         "_mean_statistics.csv"))
+        
+        selected_thres <- pull(selected_thres[selected_thres$algorithm == selected_algo[j], "spec_sens"])
+        
+        final_raw_mean_th <- final_raw_mean > selected_thres
+        
+        projection_folder <- paste0(run_name, study_sp[i], "/", gcm_names[h], "/", ssp_names[g], "/")
+        
+        if (file.exists(projection_folder) == FALSE){
+          dir.create(paste0(projection_folder), recursive = TRUE, showWarnings = FALSE)
+        } 
+        
+        writeRaster(final_raw_mean, filename = paste0(projection_folder, study_sp[i], "_", 
+                                                      selected_algo[j], "_raw_mean.tif"), overwrite = TRUE)
+        writeRaster(final_raw_mean_th, filename = paste0(projection_folder, study_sp[i], "_", 
+                                                      selected_algo[j], "_raw_mean_th.tif"), overwrite = TRUE)
+        
+        
+      }
+      
+    }
+    
   }
   
-  
-  
+}
