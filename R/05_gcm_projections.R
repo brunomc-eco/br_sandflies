@@ -7,6 +7,7 @@ library(dplyr)
 library(raster)
 library(modleR)
 library(gbm)
+library(randomForest)
 
 # load data and set values ------------------------------------------------
 
@@ -27,15 +28,14 @@ ext <- readRDS("./outputs/02_study_extent.rds")
 
 # scenario and gcm names
 gcm_names <- c("BCC-CSM2-MR", "CanESM5", "CNRM-CM6-1", "CNRM-ESM2-1",
-               "IPSL-CM6A-LR", "MIROC6_ssp126", "MIROC-ES2L", "MRI-ESM2-0")
+               "IPSL-CM6A-LR", "MIROC6", "MIROC-ES2L", "MRI-ESM2-0")
 
 ssp_names <- c("ssp126_2041-2060", "ssp245_2041-2060", "ssp585_2041-2060")
 
 
-
 # project selected models -------------------------------------------------
 
-
+start <- Sys.time()
 for(g in 1:length(ssp_names)){
   
   for(h in 1:length(gcm_names)){
@@ -71,21 +71,25 @@ for(g in 1:length(ssp_names)){
                                       full.names = TRUE)
         
         partitions <- raster::stack()
+        
+        message(paste("Projecting partitions of", study_sp[i], gcm_names[h], 
+                      ssp_names[g], selected_algo[j], sep = " "))
+        
         for(k in 1:length(proj_partitions)){
           
           load(proj_partitions[k])
           
           if (selected_algo[j] == "brt") {
-            mod_proj_cont <- dismo::predict(pred_gcm, mod, n.trees = mod$n.trees)
+            mod_proj_cont <- dismo::predict(pred_gcm, mod, n.trees = mod$n.trees, progress = 'text')
           }
           if (selected_algo[j] == "glm") {
-            mod_proj_cont <- raster::predict(pred_gcm, mod, type = "response")
+            mod_proj_cont <- raster::predict(pred_gcm, mod, type = "response", progress = 'text')
           }
           if (selected_algo[j] %in% c("bioclim", "domain", "maxent", "mahal")) {
-            mod_proj_cont <- dismo::predict(pred_gcm, mod)
+            mod_proj_cont <- dismo::predict(pred_gcm, mod, progress = 'text')
           }
           if (selected_algo[j] %in% c("svmk", "maxnet", "svme", "rf")) {
-            mod_proj_cont <- raster::predict(pred_gcm, mod)
+            mod_proj_cont <- raster::predict(pred_gcm, mod, progress = 'text')
           }
           
           # saving partitions
