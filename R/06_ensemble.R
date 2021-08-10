@@ -193,3 +193,44 @@ for(i in 1:length(study_sp)){
   }
     
 }
+
+
+
+# consensus by ssp --------------------------------------------------------
+
+
+for(i in 1:length(study_sp)){
+  
+  for(g in 1:length(ssp_names)){
+    
+    ssp_consensus <- stack()
+    for(h in 1:length(gcm_names)){
+      
+      consensus_ensemble <- list.files(path = paste0(run_name, study_sp[i], "/", 
+                                                     gcm_names[h], "/", ssp_names[g], "/", "ensemble/"),
+                                       pattern = "consensus",
+                                       full.names = TRUE) %>%
+        raster()
+      
+      ssp_consensus <- addLayer(ssp_consensus, consensus_ensemble)
+      
+    }
+    
+    message(paste("Calculating ssp consensus of", study_sp[i], 
+                  ssp_names[g], sep = " "))
+    
+    final_consensus <- calc(ssp_consensus, sum)
+    
+    future_folder <- paste0(run_name, study_sp[i], "/future_consensus/")
+    
+    if (!file.exists(future_folder)) {
+      dir.create(future_folder)
+    }
+    
+    writeRaster(final_consensus, filename = paste0(future_folder, study_sp[i], "_", ssp_names[g], "_consensus.tif"),
+                overwrite = TRUE)
+    
+  }
+  
+}
+
