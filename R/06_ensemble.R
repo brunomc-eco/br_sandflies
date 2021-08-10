@@ -1,15 +1,42 @@
-# Model ensemble
+# Model ensemble based on sensitivity
 # Bruno M. Carvalho
 # brunomc.eco@gmail.com
 
 library(readr)
 library(dplyr)
 library(raster)
-library(modleR)
 
 
-# ensemble based on sensitivity -------------------------------------------
+# load data and set values ------------------------------------------------
 
+# species names
+study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
+              "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
+              "L_intermedia", "L_complexa", "L_wellcomei")
+
+# name the folder where previous final models were saved
+run_name <- c("./outputs/models_hist_100km/")
+
+# scenario and gcm names
+gcm_names <- c("BCC-CSM2-MR", "CanESM5", "CNRM-CM6-1", "CNRM-ESM2-1",
+               "IPSL-CM6A-LR", "MIROC6", "MIROC-ES2L", "MRI-ESM2-0")
+
+ssp_names <- c("ssp126_2041-2060", "ssp245_2041-2060", "ssp585_2041-2060")
+
+# set consensus level for ensemble binary
+consensus_level <- 0.5 # majority rule
+
+# load validation dataset
+valid <- read_csv("./data/01_occ_hist_100km_valid.csv")
+
+# set sensitivity threshold for keeping algos in the ensemble
+sens_thres <- 0.8
+
+
+# historical models -------------------------------------------------------
+
+summary_valid <- read_csv(paste0(run_name, "validation_summary.csv")) %>%
+  as_tibble()
 
 for(i in 1:length(study_sp)){
   
@@ -28,8 +55,6 @@ for(i in 1:length(study_sp)){
                        "_external_validation.csv")) %>%
     filter(pass == 1) %>%
     pull(sensitivity)
-  
-  #for(j in paths){
   
   # load final models for this species, only selected algo
   raw_mean_models <- list.files(path = paste0(run_name, study_sp[i],
@@ -57,7 +82,6 @@ for(i in 1:length(study_sp)){
   
   # create ensembles
   ens <- raster::weighted.mean(raw_mean_models, w)
-  #ens_avg <- raster::mean(raw_mean_models)
   ens_bin <- mean(raw_mean_th_models) > consensus_level
   
   # evaluate ensembles
@@ -70,17 +94,25 @@ for(i in 1:length(study_sp)){
     dplyr::select(-"ID")
   
   # calculate sensitivity
-  t <- tibble(species = study_sp[i],
-              predicted_as_abs = count(filter(vals, vals[1] == 0)),
-              predicted_as_pres = count(filter(vals, vals[1] == 1)),
-              algo = "ensemble_consensus") %>%
-    mutate(total_valid = predicted_as_abs + predicted_as_pres,
-           sensitivity = predicted_as_pres/total_valid,
-           specificity = predicted_as_abs/total_valid)
+  
+  t <- data.frame(predicted_as_pres = NA,
+                  predicted_as_abs = NA)
+  t[1,1] <- count(filter(vals, vals[1] == 1))
+  t[1,2] <- count(filter(vals, vals[1] == 0))
+  
+  t <- as_tibble(t) %>%
+    mutate(total_valid_records = predicted_as_pres + predicted_as_abs,
+           species = study_sp[i],
+           algo = "ensemble_consensus",
+           sensitivity = predicted_as_pres/(predicted_as_abs+predicted_as_pres),
+           pass = ifelse(sensitivity > sens_thres, 1, 0)) %>%
+    relocate(species, .before = predicted_as_pres) %>%
+    relocate(algo, .before = predicted_as_pres) %>%
+    relocate(total_valid_records, .before = predicted_as_pres)
+  
   
   # save output maps and table
-  ensemble_folder <- paste0(run_name, study_sp[i], "/",
-                            "/present/ensemble/")
+  ensemble_folder <- paste0(run_name, study_sp[i], "/present/ensemble/")
   if (!file.exists(ensemble_folder)) {
     dir.create(ensemble_folder)
   }
@@ -92,5 +124,72 @@ for(i in 1:length(study_sp)){
   
   write_csv(t, file = paste0(ensemble_folder, study_sp[i], "_ensemble_validation.csv"))
   
-  #}
+  summary_valid <- add_row(summary_valid, t)
+}
+
+write_csv(summary_valid, file = paste0(run_name, "validation_summary.csv"))
+
+
+
+# climate change projections ----------------------------------------------
+
+for(i in 1:length(study_sp)){
+  
+  # selected algorithms for this species
+  selected_algo <- read_csv(paste0(run_name, study_sp[i], 
+                                   "/present/final_models/", study_sp[i], 
+                                   "_external_validation.csv")) %>%
+    filter(pass == 1) %>%
+    pull(algo)
+  
+  selected_algo <- as.character(selected_algo)
+  
+  # weights for ensemble
+  w <- read_csv(paste0(run_name, study_sp[i], 
+                       "/present/final_models/", study_sp[i], 
+                       "_external_validation.csv")) %>%
+    filter(pass == 1) %>%
+    pull(sensitivity)
+  
+  # load final models for this species, only selected algo
+  
+  
+  for(h in 1:length(gcm_names)){
+    
+    
+    for(g in 1:length(ssp_names)){
+      
+      projection_folder <- paste0(run_name, study_sp[i], "/", gcm_names[h], "/", ssp_names[g], "/")
+      
+      raw_mean_models <- list.files(path = projection_folder, pattern = "raw_mean.tif", full.names = TRUE) %>%
+        stack()
+      names(raw_mean_models) <- selected_algo
+      
+      raw_mean_th_models <- list.files(path = projection_folder, pattern = "raw_mean_th.tif", full.names = TRUE) %>%
+        stack()
+      names(raw_mean_th_models) <- selected_algo
+      
+      message(paste("Calculating ensembles of", study_sp[i], gcm_names[h], 
+                    ssp_names[g], sep = " "))
+      
+      # create ensembles
+      ens <- raster::weighted.mean(raw_mean_models, w)
+      ens_bin <- mean(raw_mean_th_models) > consensus_level
+      
+      # save output maps
+      ensemble_folder <- paste0(projection_folder, "ensemble/")
+      
+      if (!file.exists(ensemble_folder)) {
+        dir.create(ensemble_folder)
+      }
+      
+      writeRaster(ens, filename = paste0(ensemble_folder, study_sp[i], "_weighted_mean_ensemble.tif"),
+                  overwrite = TRUE)
+      writeRaster(ens_bin, filename = paste0(ensemble_folder, study_sp[i], "_consensus_ensemble.tif"),
+                  overwrite = TRUE)
+      
+    }
+    
+  }
+    
 }

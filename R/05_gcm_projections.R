@@ -5,7 +5,6 @@
 library(readr)
 library(dplyr)
 library(raster)
-library(modleR)
 library(gbm)
 library(randomForest)
 

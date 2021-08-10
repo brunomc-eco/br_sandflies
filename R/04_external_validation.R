@@ -5,7 +5,6 @@
 library(readr)
 library(dplyr)
 library(raster)
-library(modleR)
 
 
 # load data and set values ------------------------------------------------
@@ -89,4 +88,4 @@ summary_valid <- data.table::rbindlist(summary_valid) %>%
   mutate(total_valid_records = predicted_as_pres + predicted_as_abs) %>%
   relocate(total_valid_records, .before = predicted_as_pres)
 
-write_csv(summary_valid, file = paste0(run_name, "04_summary_valid.csv"))
+write_csv(summary_valid, file = paste0(run_name, "validation_summary.csv"))
