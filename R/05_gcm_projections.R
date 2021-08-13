@@ -29,8 +29,8 @@ ext <- readRDS("./outputs/02_study_extent.rds")
 gcm_names <- c("BCC-CSM2-MR", "CanESM5", "CNRM-CM6-1", "CNRM-ESM2-1",
                "IPSL-CM6A-LR", "MIROC6", "MIROC-ES2L", "MRI-ESM2-0")
 
-ssp_names <- c("ssp126_2041-2060", "ssp245_2041-2060", "ssp585_2041-2060")
-
+#ssp_names <- c("ssp126_2041-2060", "ssp245_2041-2060", "ssp585_2041-2060")
+ssp_names <- c("ssp126_2081-2100", "ssp245_2081-2100", "ssp585_2081-2100")
 
 # project selected models -------------------------------------------------
 
