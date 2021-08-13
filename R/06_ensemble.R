@@ -197,7 +197,38 @@ for(i in 1:length(study_sp)){
 
 
 
-# consensus by ssp --------------------------------------------------------
+# multi-gcm ensemble  -----------------------------------------------------
+
+# rescale_layer function from modleR:
+
+rescale_layer <- function(layers) {
+  message("Standardizing models from 0 to 1")
+  if (missing(layers)) {
+    stop("No layers were provided. Please enter a Raster or a RasterStack")
+  }
+  for (i in 1:dim(layers)[3]) {
+    stand <- function(x) {
+      (x - min(layers[[i]][], na.rm = TRUE)) /
+        (max(layers[[i]][], na.rm = TRUE) - min(layers[[i]][],
+                                                na.rm = TRUE))
+    }
+    bb <- raster::calc(layers[[i]], stand)
+    bb
+    if (i == 1) {
+      cc <- raster::stack(bb)
+      names(cc)[i] <- names(layers)[i]
+    }
+    else{
+      cc <- raster::stack(cc, bb)
+      names(cc)[i] <- names(layers)[i]
+    }
+    if (i == dim(layers)[3]) {
+      layers <- cc
+      rm(cc)
+      return(layers)
+    }
+  }
+}
 
 
 for(i in 1:length(study_sp)){
@@ -205,6 +236,7 @@ for(i in 1:length(study_sp)){
   for(g in 1:length(ssp_names)){
     
     ssp_consensus <- stack()
+    ssp_mean <- stack()
     for(h in 1:length(gcm_names)){
       
       consensus_ensemble <- list.files(path = paste0(run_name, study_sp[i], "/", 
@@ -215,12 +247,28 @@ for(i in 1:length(study_sp)){
       
       ssp_consensus <- addLayer(ssp_consensus, consensus_ensemble)
       
+      mean_ensemble <- list.files(path = paste0(run_name, study_sp[i], "/", 
+                                                     gcm_names[h], "/", ssp_names[g], "/", "ensemble/"),
+                                       pattern = "mean",
+                                       full.names = TRUE) %>%
+        raster()
+      
+      ssp_mean <- addLayer(ssp_mean, mean_ensemble)
+      
     }
     
     message(paste("Calculating ssp consensus of", study_sp[i], 
                   ssp_names[g], sep = " "))
     
     final_consensus <- calc(ssp_consensus, sum)
+    
+    message(paste("Calculating ssp means of", study_sp[i], 
+                  ssp_names[g], sep = " "))
+    
+    final_mean <- calc(ssp_mean, mean)
+    final_mean <- rescale_layer(final_mean)
+    
+    # saving outputs
     
     future_folder <- paste0(run_name, study_sp[i], "/future_consensus/")
     
@@ -229,6 +277,8 @@ for(i in 1:length(study_sp)){
     }
     
     writeRaster(final_consensus, filename = paste0(future_folder, study_sp[i], "_", ssp_names[g], "_consensus.tif"),
+                overwrite = TRUE)
+    writeRaster(final_mean, filename = paste0(future_folder, study_sp[i], "_", ssp_names[g], "_mean.tif"),
                 overwrite = TRUE)
     
   }
