@@ -71,6 +71,11 @@ for(i in 1:length(study_sp)){
     spTransform(crs.wgs84) %>% #convert back into wgs84
     SpatialPolygonsDataFrame(data = data.frame("val" = 1, row.names = "buffer"))
   
+  writeOGR(mcp_buf, dsn = paste0(run_name, study_sp[i]),
+           layer = paste0("03_calibration_area_", study_sp[i]),
+           driver = "ESRI Shapefile",
+           overwrite_layer = TRUE)
+  
   # modleR will automatically do jackknife if number of records is <= 10
   
   #running setup_sdmdata
