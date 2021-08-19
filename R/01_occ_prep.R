@@ -33,7 +33,7 @@ visual_check <- function(x){
 # loading occurrence data files, full and historical (1970-2000)
 occ_full <- read_csv("./data/raw/ocorrencias_total_fechado_artigo.csv")
 occ_hist <- read_csv("./data/raw/ocorrencias_1970-2000_fechado_artigo.csv")
-
+occ_chelsa <- read_csv("./data/raw/ocorrencias_1981-2010_fechado_artigo.csv")
 
 # retaining only records from study species, with unique coordinates
 occ_full <- occ_full %>%
@@ -56,12 +56,21 @@ occ_hist <- occ_hist %>%
   select(species, lon, lat) %>%
   distinct()
 
+occ_chelsa <- occ_chelsa %>%
+  filter(lon_dec != "NA",
+         lat_dec != "NA",
+         considered.species %in% study_sp) %>%
+  rename(species = considered.species,
+         lon = lon_dec,
+         lat = lat_dec) %>%
+  select(species, lon, lat) %>%
+  distinct()
 
 # see how it looks
 
 visual_check(occ_full)
 visual_check(occ_hist)
-
+visual_check(occ_chelsa)
 
 # exploring coord_prec
 
@@ -82,6 +91,7 @@ visual_check(occ_hist_prec12)
 # saving formatted data
 write_csv(occ_full, "./data/01_occ_full.csv")
 write_csv(occ_hist, "./data/01_occ_hist.csv")
+write_csv(occ_chelsa, "./data/01_occ_chelsa.csv")
 
 
 # thin records ------------------------------------------------------------
@@ -113,7 +123,8 @@ occ_full_10km <- thinning(occ_full, 10)
 occ_full_100km <- thinning(occ_full, 100)
 occ_hist_10km <- thinning(occ_hist, 10)
 occ_hist_100km <- thinning(occ_hist, 100)
-
+occ_chelsa_10km <- thinning(occ_chelsa, 10)
+occ_chelsa_100km <- thinning(occ_chelsa, 100)
 
 # generating validation datasets ------------------------------------------
 
@@ -122,6 +133,9 @@ occ_hist_10km_valid <- occ_hist %>%
 
 occ_hist_100km_valid <- occ_hist %>%
   anti_join(occ_hist_100km)
+
+occ_chelsa_100km_valid <- occ_chelsa %>%
+  anti_join(occ_chelsa_100km)
 
 # counting records --------------------------------------------------------
 
@@ -142,11 +156,16 @@ n_records <- count_unique(occ_full) %>%
   left_join(count_unique(occ_hist_10km), by = "species") %>%
   left_join(count_unique(occ_hist_10km_valid), by = "species") %>%
   left_join(count_unique(occ_hist_100km), by = "species") %>%
-  left_join(count_unique(occ_hist_100km_valid), by = "species")
-
+  left_join(count_unique(occ_hist_100km_valid), by = "species") %>%
+  left_join(count_unique(occ_chelsa), by = "species") %>%
+  left_join(count_unique(occ_chelsa_10km), by = "species") %>%
+  left_join(count_unique(occ_chelsa_100km), by = "species") %>%
+  left_join(count_unique(occ_chelsa_100km_valid), by = "species")
+  
 names(n_records) <- c("species", "n_full", "n_full_10km", "n_full_100km",
                       "n_hist", "n_hist_10km","n_hist_10km_valid",
-                      "n_hist_100km", "n_hist_100km_valid")
+                      "n_hist_100km", "n_hist_100km_valid", 
+                      "n_chelsa", "n_chelsa_10km", "n_chelsa_100km", "n_chelsa_100km_valid")
 
 
 
@@ -158,5 +177,8 @@ write_csv(occ_hist_10km, "./data/01_occ_hist_10km.csv")
 write_csv(occ_hist_100km, "./data/01_occ_hist_100km.csv")
 write_csv(occ_hist_10km_valid, "./data/01_occ_hist_10km_valid.csv")
 write_csv(occ_hist_100km_valid, "./data/01_occ_hist_100km_valid.csv")
+write_csv(occ_chelsa_10km, "./data/01_occ_chelsa_10km.csv")
+write_csv(occ_chelsa_100km, "./data/01_occ_chelsa_100km.csv")
+write_csv(occ_chelsa_100km_valid, "./data/01_occ_chelsa_100km_valid.csv")
 
 write_csv(n_records, "./data/01_n_records.csv")
