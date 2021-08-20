@@ -7,38 +7,60 @@ library(rgeos)
 library(rgdal)
 library(dplyr)
 library(readr)
+library(stringr)
 library(modleR)
 
 
 # define settings of this run ---------------------------------------------
 
 ## species occurrence set
-occ <- read_csv("./data/01_occ_hist_100km.csv")
+occ <- read_csv("./data/01_occ_chelsa_100km.csv")
 
 # paths to layers
-layer_path <- c("C:/layers/raster/worldclim2_historical/")
+layer_path <- c("C:/layers/raster/chelsa/1981-2010/bio/")
 
 # name a folder to save outputs of this run
-run_name <- c("./outputs/models_hist_100km/")
+run_name <- c("./outputs/models_chelsa_100km/")
 
 
 # load data ---------------------------------------------------------------
 
-# selected predictors and extent
+# selected predictors and extent, resample if using chelsa
 
-wc_sel_names <- read_lines("./outputs/02_selected_variable_names.txt")
 ext <- readRDS("./outputs/02_study_extent.rds")
 
-#test
-#layer_path <- c("C:/layers/wc2_test_prec_SA_10/")
-#wc <- list.files(layer_path, pattern = ".tif", full.names = TRUE) %>%
-#  stack() %>%
-#  crop(ext)
-
-wc <- list.files(layer_path, pattern = "tif", full.names = TRUE) %>%
-  stack() %>%
-  subset(wc_sel_names) %>%
-  crop(ext)
+if(str_detect(layer_path, "chelsa") == TRUE){
+  
+  chelsa_sel_names <- read_lines("./outputs/02_chelsa_selected_variable_names.txt")
+  chelsa <- list.files(layer_path, pattern = ".tif", full.names = TRUE) %>%
+    stack() %>%
+    subset(chelsa_sel_names)
+  
+  wc_sample <- raster("C:/layers/raster/worldclim2_historical_SA_2.5/bio1_SA.tif") %>%
+    crop(ext)
+  
+  chelsa_resampled <- stack()
+  for(i in 1:nlayers(chelsa)){
+    
+    a <- crop(chelsa[[i]], wc_sample) %>%
+      resample(wc_sample, method = "bilinear") %>%
+      mask(wc_sample)
+    
+    chelsa_resampled <- addLayer(chelsa_resampled, a)
+    
+  }
+  
+  preds <- chelsa_resampled
+  
+} else {
+  
+  wc_sel_names <- read_lines("./outputs/02_selected_variable_names.txt")
+  preds <- list.files(layer_path, pattern = "tif", full.names = TRUE) %>%
+    stack() %>%
+    subset(wc_sel_names) %>%
+    crop(ext)
+  
+}
 
 # projections
 ## geographical, WGS84
@@ -81,7 +103,7 @@ for(i in 1:length(study_sp)){
   #running setup_sdmdata
   setup_sdmdata(species_name = study_sp[i],
                 occurrences = as.data.frame(species_df),
-                predictors = wc, # set of predictors for running the models
+                predictors = preds, # set of predictors for running the models
                 models_dir = run_name, # folder to save partitions
                 seed = 123, # set seed for random generation of pseudoabsences
                 buffer_type = "user", # buffer type for sampling pseudoabsences
@@ -97,7 +119,6 @@ for(i in 1:length(study_sp)){
 }
 
 
-
 # modleR 2/3: model calibration -------------------------------------------
 
 
@@ -105,7 +126,7 @@ for(i in 1:length(study_sp)){
   
   # run selected algorithms for each partition
   do_many(species_name = study_sp[i],
-          predictors = wc,
+          predictors = preds,
           models_dir = run_name,
           project_model = FALSE, # gcm projections will be done later
           write_rda = TRUE, # will need this for the gcm projections
@@ -127,12 +148,15 @@ for(i in 1:length(study_sp)){
 study_sp_brt <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
                   "L_umbratilis", "L_flaviscutellata", "L_intermedia")
 
+# for chelsa, brt did not run only for L. cruzi and L. wellcomei
+study_sp_brt <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
+                  "L_umbratilis", "L_flaviscutellata", "L_intermedia", "L_complexa")
 
 for(i in 1:length(study_sp_brt)){
   
   # run selected algorithms for each partition
   do_many(species_name = study_sp_brt[i],
-          predictors = wc,
+          predictors = preds,
           models_dir = run_name,
           project_model = FALSE, # gcm projections will be done later
           write_rda = TRUE, # will need this for the gcm projections
@@ -160,3 +184,4 @@ for(i in 1:length(study_sp)){
               overwrite = TRUE)
 
 }
+beepr::beep(3)
