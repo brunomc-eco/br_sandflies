@@ -40,3 +40,6 @@ vignettes/*.pdf
 
 # model outputs
 outputs/
+
+# original data (until paper is published)
+data/
