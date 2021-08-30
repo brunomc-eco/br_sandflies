@@ -4,99 +4,36 @@
 
 library(readr)
 library(dplyr)
+library(tibble)
 library(ggplot2)
 library(spThin)
+library(raster)
+library(rgdal)
+library(rgeos)
 library(data.table)
 
 
 # load data ---------------------------------------------------------------
 
+# loading occurrence data files, historical for chelsa dataset (1981-2010)
+occ_chelsa <- read_csv("./data/raw/occs_1981-2010.csv")
 
 # select study species
-study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
-              "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
-              "L_intermedia", "L_complexa", "L_wellcomei")
-
-# function for quick visual inspection of records
-visual_check <- function(x){
-  ggplot() +
-    borders("world", colour="white", fill="gray50") +
-    geom_point(data = x, 
-               aes(x = lon, y = lat, colour = species), size = 1) +
-    coord_sf(xlim = c(min(x$lon) -0.5,
-                      max(x$lon) +0.5), 
-             ylim = c(min(x$lat) -5,
-                      max(x$lat) +5))
-}
+study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
+              "L_longipalpis", "L_migonei", "L_neivai", "L_umbratilis",
+              "L_wellcomei", "L_whitmani")
 
 
-# loading occurrence data files, full and historical (1970-2000)
-occ_full <- read_csv("./data/raw/ocorrencias_total_fechado_artigo.csv")
-occ_hist <- read_csv("./data/raw/ocorrencias_1970-2000_fechado_artigo.csv")
-occ_chelsa <- read_csv("./data/raw/ocorrencias_1981-2010_fechado_artigo.csv")
+# shapefiles with model calibration area by species
+calib_files <- list.files("./data/shp", pattern = ".shp", full.names = TRUE)
 
-# retaining only records from study species, with unique coordinates
-occ_full <- occ_full %>%
-  filter(lon_dec != "NA",
-         lat_dec != "NA",
-         considered.species %in% study_sp) %>%
-  rename(species = considered.species,
-         lon = lon_dec,
-         lat = lat_dec) %>%
-  select(species, lon, lat) %>%
-  distinct()
-
-occ_hist <- occ_hist %>%
-  filter(lon_dec != "NA",
-         lat_dec != "NA",
-         considered.species %in% study_sp) %>%
-  rename(species = considered.species,
-         lon = lon_dec,
-         lat = lat_dec) %>%
-  select(species, lon, lat) %>%
-  distinct()
-
-occ_chelsa <- occ_chelsa %>%
-  filter(lon_dec != "NA",
-         lat_dec != "NA",
-         considered.species %in% study_sp) %>%
-  rename(species = considered.species,
-         lon = lon_dec,
-         lat = lat_dec) %>%
-  select(species, lon, lat) %>%
-  distinct()
-
-# see how it looks
-
-visual_check(occ_full)
-visual_check(occ_hist)
-visual_check(occ_chelsa)
-
-# exploring coord_prec
-
-occ_hist_prec1 <- occ_hist %>%
-  filter(coord.prec == 1)
-
-occ_hist_prec2 <- occ_hist %>%
-  filter(coord.prec == 2)
-
-occ_hist_prec3 <- occ_hist %>%
-  filter(coord.prec == 3)
-
-occ_hist_prec12 <- occ_hist %>%
-  filter(coord.prec != 3)
-
-visual_check(occ_hist_prec12)
-
-# saving formatted data
-write_csv(occ_full, "./data/01_occ_full.csv")
-write_csv(occ_hist, "./data/01_occ_hist.csv")
-write_csv(occ_chelsa, "./data/01_occ_chelsa.csv")
+# WGS84 datum CRS
+wgs84 <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")
 
 
-# thin records ------------------------------------------------------------
+# functions ---------------------------------------------------------------
 
-
+# thin records and build species/lat/lon file
 thinning <- function(x,y){
   l <- list()
   for(i in 1:length(study_sp)){
@@ -112,73 +49,124 @@ thinning <- function(x,y){
                     write.files = FALSE,
                     write.log.file = FALSE)
     l[[i]] <- data.frame(species = rep(study_sp[i], nrow(thinned[[1]])),
-                                lon = thinned[[1]]$Longitude,
-                                lat = thinned[[1]]$Latitude)
+                         lon = thinned[[1]]$Longitude,
+                         lat = thinned[[1]]$Latitude)
   }
   rbindlist(l)
 }
 
-
-occ_full_10km <- thinning(occ_full, 10)
-occ_full_100km <- thinning(occ_full, 100)
-occ_hist_10km <- thinning(occ_hist, 10)
-occ_hist_100km <- thinning(occ_hist, 100)
-occ_chelsa_10km <- thinning(occ_chelsa, 10)
-occ_chelsa_100km <- thinning(occ_chelsa, 100)
-
-# generating validation datasets ------------------------------------------
-
-occ_hist_10km_valid <- occ_hist %>%
-  anti_join(occ_hist_10km)
-
-occ_hist_100km_valid <- occ_hist %>%
-  anti_join(occ_hist_100km)
-
-occ_chelsa_100km_valid <- occ_chelsa %>%
-  anti_join(occ_chelsa_100km)
-
-# counting records --------------------------------------------------------
-
-
 # counting records by species in different sets
-
 count_unique <- function(x){
   x %>%
     group_by(species) %>%
     summarize(count = n())
 }
 
+# filter records for model calibration ------------------------------------
 
-n_records <- count_unique(occ_full) %>%
-  left_join(count_unique(occ_full_10km), by = "species") %>%
-  left_join(count_unique(occ_full_100km), by = "species") %>%
-  left_join(count_unique(occ_hist), by = "species") %>%
-  left_join(count_unique(occ_hist_10km), by = "species") %>%
-  left_join(count_unique(occ_hist_10km_valid), by = "species") %>%
-  left_join(count_unique(occ_hist_100km), by = "species") %>%
-  left_join(count_unique(occ_hist_100km_valid), by = "species") %>%
-  left_join(count_unique(occ_chelsa), by = "species") %>%
-  left_join(count_unique(occ_chelsa_10km), by = "species") %>%
-  left_join(count_unique(occ_chelsa_100km), by = "species") %>%
-  left_join(count_unique(occ_chelsa_100km_valid), by = "species")
-  
-names(n_records) <- c("species", "n_full", "n_full_10km", "n_full_100km",
-                      "n_hist", "n_hist_10km","n_hist_10km_valid",
-                      "n_hist_100km", "n_hist_100km_valid", 
-                      "n_chelsa", "n_chelsa_10km", "n_chelsa_100km", "n_chelsa_100km_valid")
+# retaining only records from study species, with unique coordinates
+occ_chelsa <- occ_chelsa %>%
+  filter(lon_dec != "NA",
+         lat_dec != "NA",
+         considered.species %in% study_sp) %>%
+  rename(species = considered.species,
+         lon = lon_dec,
+         lat = lat_dec) %>%
+  dplyr::select(species, lon, lat) %>%
+  distinct()
 
+occ_chelsa_10km <- thinning(occ_chelsa, 10)
+occ_chelsa_100km <- thinning(occ_chelsa, 100)
 
-
-# saving outputs ----------------------------------------------------------
-
-write_csv(occ_full_10km, "./data/01_occ_full_10km.csv")
-write_csv(occ_full_100km, "./data/01_occ_full_100km.csv")
-write_csv(occ_hist_10km, "./data/01_occ_hist_10km.csv")
-write_csv(occ_hist_100km, "./data/01_occ_hist_100km.csv")
-write_csv(occ_hist_10km_valid, "./data/01_occ_hist_10km_valid.csv")
-write_csv(occ_hist_100km_valid, "./data/01_occ_hist_100km_valid.csv")
+# saving formatted datasets
+write_csv(occ_chelsa, "./data/01_occ_chelsa.csv")
 write_csv(occ_chelsa_10km, "./data/01_occ_chelsa_10km.csv")
 write_csv(occ_chelsa_100km, "./data/01_occ_chelsa_100km.csv")
-write_csv(occ_chelsa_100km_valid, "./data/01_occ_chelsa_100km_valid.csv")
 
+
+# generating validation datasets ------------------------------------------
+
+# presence records (records that were discarded in the spatial thinning)
+
+occ_chelsa_100km_valid <- occ_chelsa %>%
+  anti_join(occ_chelsa_100km) %>%
+  mutate(pa = 1)
+
+# absence records criteria: same number as presence records,
+# sampled inside model calibration area, but 
+# outside a 1 arc-degree buffer from each presence record
+
+validation <- list()
+for(i in 1:length(study_sp)){
+  
+  # validation presences for this species
+  valid_pres <- occ_chelsa_100km_valid %>%
+    filter(species == study_sp[i])
+  
+  coordinates(valid_pres) <- c("lon", "lat")
+  proj4string(valid_pres) <- wgs84
+  
+  # create mask for sampling absences
+  calib <- readOGR(calib_files[i])
+  pres_buf <- rgeos::gBuffer(valid_pres, width = 1) # 1 arc-degree buffer
+  
+  abs_mask <- calib - pres_buf
+  proj4string(abs_mask) <- wgs84
+  
+  # get absence dataset and thin records
+  valid_abs <- occ_chelsa_100km_valid %>%
+    filter(species != study_sp[i]) %>%
+    dplyr::select(-species, -pa) %>%
+    mutate(species = study_sp[i]) %>%
+    thinning(., 100)
+  
+  coordinates(valid_abs) <- c("lon", "lat")
+  proj4string(valid_abs) <- wgs84
+  
+  # sample same number of abs as pres
+  valid_abs <- rgeos::gIntersection(valid_abs, abs_mask)
+  
+  if(length(valid_abs) < length(valid_pres)){
+    
+    valid_pres <- sample_n(data.frame(valid_pres), length(valid_abs))
+    
+  } else {
+    
+    valid_abs <- sample_n(data.frame(valid_abs), length(valid_pres))
+    
+  }
+  
+  # merging final validation dataset for this species
+  p <- data.frame(valid_pres) %>%
+    dplyr::select(-optional)
+  
+  a <- data.frame(valid_abs) %>%
+    remove_rownames() %>%
+    rename( lon = "x", lat = "y") %>%
+    mutate(species = study_sp[i],
+           pa = 0)
+  
+  validation[[i]] <- bind_rows(p, a)
+
+}
+
+validation_all <- rbindlist(validation)
+
+# saving validation dataset
+write_csv(validation_all, "./data/01_validation_dataset.csv")
+
+
+# counting records --------------------------------------------------------
+
+n_records <- count_unique(occ_chelsa) %>%
+  left_join(count_unique(occ_chelsa_10km), by = "species") %>%
+  left_join(count_unique(occ_chelsa_100km), by = "species") %>%
+  left_join(count_unique(filter(validation_all, pa == 1)), by = "species") %>%
+  left_join(count_unique(filter(validation_all, pa == 0)), by = "species")
+  
+names(n_records) <- c("species", "n_chelsa", "n_chelsa_10km", 
+                      "n_chelsa_100km", "n_validation_pres",
+                      "n_validation_abs")
+
+# saving record counts
 write_csv(n_records, "./data/01_n_records.csv")
