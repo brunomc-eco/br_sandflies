@@ -25,7 +25,7 @@ study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
 
 
 # shapefiles with model calibration area by species
-calib_files <- list.files("./data/shp", pattern = ".shp", full.names = TRUE)
+calib_files <- list.files("./data/shp/calib", pattern = ".shp", full.names = TRUE)
 
 # WGS84 datum CRS
 wgs84 <- CRS("+proj=longlat +ellps=WGS84 +datum=WGS84")
