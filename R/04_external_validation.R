@@ -10,12 +10,12 @@ library(raster)
 # load data and set values ------------------------------------------------
 
 # load validation dataset
-valid <- read_csv("./data/01_occ_hist_100km_valid.csv")
+valid <- read_csv("./data/01_validation_dataset.csv")
 
 # species names
-study_sp <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
-              "L_umbratilis", "L_flaviscutellata", "L_cruzi", 
-              "L_intermedia", "L_complexa", "L_wellcomei")
+study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
+              "L_longipalpis", "L_migonei", "L_neivai", "L_umbratilis",
+              "L_wellcomei", "L_whitmani")
 
 # set sensitivity threshold for keeping algos in the ensemble
 sens_thres <- 0.8
@@ -24,7 +24,7 @@ sens_thres <- 0.8
 consensus_level <- 0.5 # majority rule
 
 # name the folder where previous final models were saved
-run_name <- c("./outputs/models_hist_100km/")
+run_name <- c("./outputs/models_chelsa_100km/")
 
 
 # calculate sensitivity/omission ------------------------------------------

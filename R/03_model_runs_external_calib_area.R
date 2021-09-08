@@ -142,17 +142,20 @@ for(i in 1:length(study_sp)){
           rf = TRUE,
           svmk = TRUE)
 }
-beepr::beep(3)
+
 
 # L. cruzi, L. complexa and L. wellcomei did not have enough unique records to run BRT,
 # so using the following species subset to run BRT for them:
 
-study_sp_brt <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
-                  "L_umbratilis", "L_flaviscutellata", "L_intermedia")
+#study_sp_brt <- c("L_flaviscutellata", "L_intermedia",
+#                  "L_longipalpis", "L_migonei", "L_neivai", 
+#                  "L_umbratilis", "L_whitmani")
 
 # for chelsa, brt did not run only for L. cruzi and L. wellcomei
-study_sp_brt <- c("L_neivai", "L_migonei", "L_longipalpis", "L_whitmani", 
-                  "L_umbratilis", "L_flaviscutellata", "L_intermedia", "L_complexa")
+study_sp_brt <- c("L_complexa", "L_flaviscutellata", "L_intermedia",
+                  "L_longipalpis", "L_migonei", "L_neivai", 
+                  "L_umbratilis", "L_whitmani")
+
 
 for(i in 1:length(study_sp_brt)){
   
