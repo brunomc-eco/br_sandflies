@@ -89,7 +89,10 @@ write_csv(occ_chelsa_100km, "./data/01_occ_chelsa_100km.csv")
 # presence records (records that were discarded in the spatial thinning)
 
 occ_chelsa_100km_valid <- occ_chelsa %>%
-  anti_join(occ_chelsa_100km) %>%
+  anti_join(occ_chelsa_100km)
+
+# repeating thinning, but only for validation records
+occ_chelsa_100km_valid <- thinning(occ_chelsa_100km_valid, 100) %>%
   mutate(pa = 1)
 
 # absence records criteria: same number as presence records,
