@@ -76,7 +76,8 @@ for(i in 1:length(study_sp)){
            sensitivity = pres_predicted_as_pres/(pres_predicted_as_abs+pres_predicted_as_pres),
            specificity = abs_predicted_as_abs/(abs_predicted_as_abs+abs_predicted_as_pres),
            TSS = sensitivity + specificity - 1,
-           pass = ifelse(TSS > tss_thres, 1, 0)) %>%
+           tss_pass = ifelse(TSS > tss_thres, 1, 0),
+           sens_pass = ifelse(sensitivity > sens_thres, 1, 0)) %>%
     relocate(algo, .before = pres_predicted_as_pres) %>%
     relocate(species, .before = algo)
   
