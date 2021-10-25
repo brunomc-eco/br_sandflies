@@ -61,24 +61,25 @@ for(i in 1:length(study_sp)){
   # calculate sensitivity ##############################
  
   t <- data.frame(pres_predicted_as_pres = rep(NA, length(algo)),
-                  pres_predicted_as_abs = rep(NA, length(algo)),
-                  abs_predicted_as_pres = rep(NA, length(algo)),
-                  abs_predicted_as_abs = rep(NA, length(algo)))
+                  pres_predicted_as_abs = rep(NA, length(algo)))
+                  #abs_predicted_as_pres = rep(NA, length(algo)),
+                  #abs_predicted_as_abs = rep(NA, length(algo)))
   for(j in 1:length(algo)){
     t[j, 1] <- count(filter(vals, pa == 1, vals[j] == 1))
     t[j, 2] <- count(filter(vals, pa == 1, vals[j] == 0))
-    t[j, 3] <- count(filter(vals, pa == 0, vals[j] == 1))
-    t[j, 4] <- count(filter(vals, pa == 0, vals[j] == 0))
+    #t[j, 3] <- count(filter(vals, pa == 0, vals[j] == 1))
+    #t[j, 4] <- count(filter(vals, pa == 0, vals[j] == 0))
   }
   
   t <- as_tibble(t) %>%
-    mutate(species = rep(study_sp[i], length(algo)),
+    mutate(total_valid_records = pres_predicted_as_pres + pres_predicted_as_abs,
+           species = rep(study_sp[i], length(algo)),
            algo = algo,
-           sensitivity = pres_predicted_as_pres/(pres_predicted_as_abs+pres_predicted_as_pres),
-           specificity = abs_predicted_as_abs/(abs_predicted_as_abs+abs_predicted_as_pres),
-           TSS = sensitivity + specificity - 1,
-           tss_pass = ifelse(TSS > tss_thres, 1, 0),
-           sens_pass = ifelse(sensitivity > sens_thres, 1, 0)) %>%
+           sensitivity = pres_predicted_as_pres/total_valid_records,
+           #specificity = abs_predicted_as_abs/(abs_predicted_as_abs+abs_predicted_as_pres),
+           #TSS = sensitivity + specificity - 1,
+           #tss_pass = ifelse(TSS >= tss_thres, 1, 0),
+           sens_pass = ifelse(sensitivity >= sens_thres, 1, 0)) %>%
     relocate(algo, .before = pres_predicted_as_pres) %>%
     relocate(species, .before = algo)
   
@@ -95,7 +96,6 @@ for(i in 1:length(study_sp)){
 }
 
 summary_valid <- data.table::rbindlist(summary_valid) %>%
-  mutate(total_valid_records = pres_predicted_as_pres + pres_predicted_as_abs) %>%
-  relocate(total_valid_records, .before = sensitivity)
+  relocate(total_valid_records, .before = pres_predicted_as_pres)
 
 write_csv(summary_valid, file = paste0(run_name, "validation_summary.csv"))
