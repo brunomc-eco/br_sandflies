@@ -9,8 +9,9 @@ library(raster)
 
 # load data and set values ------------------------------------------------
 
-# load validation dataset
-valid <- read_csv("./data/01_validation_dataset.csv")
+# load validation datasets
+#valid <- read_csv("./data/01_validation_dataset.csv")
+valid <- read_csv("./data/01_validation_std_presences.csv")
 
 # species names
 study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
@@ -18,8 +19,8 @@ study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
               "L_wellcomei", "L_whitmani")
 
 # set thresholds for keeping algos in the ensemble
-sens_thres <- 0.6
-tss_thres <- 0.6
+sens_thres <- 0.8
+tss_thres <- 0.5
 
 # set consensus level for ensemble binary
 consensus_level <- 0.5 # majority rule

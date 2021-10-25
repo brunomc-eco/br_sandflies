@@ -86,14 +86,30 @@ write_csv(occ_chelsa_100km, "./data/01_occ_chelsa_100km.csv")
 
 # generating validation datasets ------------------------------------------
 
-# presence records (records that were discarded in the spatial thinning)
+# presence records that were discarded in the spatial thinning
 
 occ_chelsa_100km_valid <- occ_chelsa %>%
   anti_join(occ_chelsa_100km)
 
-# repeating thinning, but only for validation records
+# randomly selecting the same number of validation records by species
+# here using 20 records because that's the smallest possible number of validation occs, for L. wellcomei
+
+valid_spp <- list()
+for(i in 1:length(study_sp)){
+  valid_spp[[i]] <- filter(occ_chelsa_100km_valid, species == study_sp[i]) %>%
+    slice_sample(n=20)
+}
+occ_valid_chelsa_std <- rbindlist(valid_spp) %>%
+  mutate(pa = 1)
+
+
+
+# thinning validation records
 occ_chelsa_100km_valid <- thinning(occ_chelsa_100km_valid, 100) %>%
   mutate(pa = 1)
+
+table(occ_chelsa_100km_valid$species)
+
 
 # absence records criteria: same number as presence records,
 # sampled inside model calibration area, but 
@@ -155,9 +171,9 @@ for(i in 1:length(study_sp)){
 
 validation_all <- rbindlist(validation)
 
-# saving validation dataset
+# saving validation datasets
 write_csv(validation_all, "./data/01_validation_dataset.csv")
-
+write_csv(occ_valid_chelsa_std, "./data/01_validation_std_presences.csv")
 
 # counting records --------------------------------------------------------
 
