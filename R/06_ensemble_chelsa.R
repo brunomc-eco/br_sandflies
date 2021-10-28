@@ -34,8 +34,7 @@ sens_thres <- 0.8
 
 # historical models -------------------------------------------------------
 
-summary_valid <- read_csv(paste0(run_name, "validation_summary.csv")) %>%
-  as_tibble()
+valid_ensembles <- list()
 
 for(i in 1:length(study_sp)){
   
@@ -99,7 +98,7 @@ for(i in 1:length(study_sp)){
   t[1,1] <- count(filter(vals, vals[1] == 1))
   t[1,2] <- count(filter(vals, vals[1] == 0))
   
-  t <- as_tibble(t) %>%
+  valid_ensembles[[i]] <- as_tibble(t) %>%
     mutate(total_valid_records = pres_predicted_as_pres + pres_predicted_as_abs,
            species = study_sp[i],
            algo = "ensemble_consensus",
@@ -122,11 +121,12 @@ for(i in 1:length(study_sp)){
               overwrite = TRUE)
   
   write_csv(t, file = paste0(ensemble_folder, study_sp[i], "_ensemble_validation.csv"))
-  
-  summary_valid <- add_row(summary_valid, t)
+ 
 }
 
-write_csv(summary_valid, file = paste0(run_name, "validation_summary.csv"))
+valid_ensembles <- rbindlist(valid_ensembles)
+
+write_csv(valid_ensembles, file = paste0(run_name, "06_validation_ensembles.csv"))
 
 
 

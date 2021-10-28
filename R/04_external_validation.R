@@ -1,10 +1,12 @@
-# External validation of final models
+# Summary stats and external validation of final models
 # Bruno M. Carvalho
 # brunomc.eco@gmail.com
 
 library(readr)
 library(dplyr)
 library(raster)
+library(stringr)
+library(data.table)
 
 
 # load data and set values ------------------------------------------------
@@ -98,4 +100,37 @@ for(i in 1:length(study_sp)){
 summary_valid <- data.table::rbindlist(summary_valid) %>%
   relocate(total_valid_records, .before = pres_predicted_as_pres)
 
-write_csv(summary_valid, file = paste0(run_name, "validation_summary.csv"))
+write_csv(summary_valid, file = paste0(run_name, "04_validation_partitions.csv"))
+
+
+# summary statistics of partitions ----------------------------------------
+
+stats_partitions <- list()
+for(i in 1:length(study_sp)){
+  
+  part_stats <- read_csv(paste0(run_name, study_sp[i], "/present/final_models/", 
+                                study_sp[i], "_final_statistics.csv"))
+  
+  sens <- summary_valid %>%
+    filter(species == study_sp[i])
+  
+  final_algos <- sens %>%
+    filter(sens_pass == 1) %>%
+    pull(algo) %>%
+    stringr::str_flatten(", ")
+  
+  stats_partitions[[i]] <- tibble(species = study_sp[i],
+                                tss_min = min(part_stats$TSSmax),
+                                tss_median = median(part_stats$TSSmax),
+                                tss_mean = mean(part_stats$TSSmax),
+                                tss_max = max(part_stats$TSSmax),
+                                sens_min = min(sens$sensitivity),
+                                sens_median = median(sens$sensitivity),
+                                sens_mean = mean(sens$sensitivity),
+                                sens_max = max(sens$sensitivity),
+                                final_algos = final_algos)
+}
+
+stats_partitions <- data.table::rbindlist(stats_partitions)
+
+write_csv(stats_partitions, paste0(run_name, "04_partition_stats.csv"))
