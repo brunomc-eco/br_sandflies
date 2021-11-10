@@ -29,8 +29,7 @@ study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
 calib_files <- list.files("./data/shp/calib", pattern = ".shp", full.names = TRUE)
 
 # admin1 shapefile for mapping
-admin1 <- readOGR("C:/layers/vector/GADM_Continental South America/AmSulNew/AmSulNew.shp")
-
+admin1 <- readOGR("C:/layers/vector/GADM/GADM_Continental South America/AmSulNew/AmSulNew.shp")
 
 
 # historical outputs ------------------------------------------------------
@@ -94,6 +93,7 @@ for(i in 1:length(study_sp)){
   diff_ssp126 = ssp126 - hist_mean
   diff_ssp370 = ssp370 - hist_mean
   diff_ssp585 = ssp585 - hist_mean
+  diffs = stack(diff_ssp126, diff_ssp370, diff_ssp585)
   
   # save diff outputs
   if (!file.exists(paste0(run_name, study_sp[i], "/diffs"))) {
@@ -112,7 +112,20 @@ for(i in 1:length(study_sp)){
                                              study_sp[i], "_diff_ssp585.tif"), 
               overwrite = TRUE)
   
-  # set dataframe with pixel values for plots
+  # save diff minimaps
+  
+  for(g in 1:length(ssp_names)){
+    png(filename = paste0(run_name, study_sp[i], "/diffs/", 
+                          study_sp[i], "_mini_diff_", ssp_names[g],".png"),
+        res = 100)
+    plot(diffs[[g]], main = paste(study_sp[i], "diff", ssp_names[g], "(2071–2100)"))
+    plot(admin1, add=T)
+    dev.off()
+  }
+    
+  
+  
+  ## pixel density plots
   
   #pixels <- tibble(id = seq(1:ncell(diff_ssp126)),
   #                 diff_ssp126_vals = getValues(diff_ssp126),
@@ -126,12 +139,28 @@ for(i in 1:length(study_sp)){
                               getValues(diff_ssp370),
                               getValues(diff_ssp585)))
   
+  #pixels_suit <- tibble(scenario = c(rep("historical", ncell(hist_mean)),
+  #                                   rep("ssp126", ncell(ssp126)),
+  #                                   rep("ssp370", ncell(ssp370)),
+  #                                   rep("ssp585", ncell(ssp585))),
+  #                 values = c(getValues(hist_mean),
+  #                            getValues(ssp126),
+  #                            getValues(ssp370),
+  #                            getValues(ssp585)))
+  
   # plot density (histograms)
   ggplot(pixels, aes(x = values, fill = scenario)) +
     geom_density(alpha=.2) +
     xlim(c(-1,1)) +
     geom_vline(xintercept = 0, linetype="dotted", color = "black", size=1) +
     labs(title= paste(study_sp[i], "suitability diff"))
+  
+  #ggplot(pixels_suit, aes(x = values, fill = scenario)) +
+  #  geom_density(alpha=.2) +
+  #  xlim(c(0,1)) +
+  #  geom_vline(xintercept = 0.5, linetype="dotted", color = "black", size=1) +
+  #  labs(title= paste(study_sp[i], "suitability"))
+  
   # save
   ggsave(filename = paste0(run_name, study_sp[i], "/diffs/", study_sp[i], "_densityplot.tif"),
          width = 4200, height = 1800, units = "px", device='tiff', dpi=300)
