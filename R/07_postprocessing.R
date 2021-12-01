@@ -27,6 +27,9 @@ study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
 # model calibration area by species
 calib_files <- list.files("./data/shp/calib", pattern = ".shp", full.names = TRUE)
 
+# maximum distance shapefiles
+max_dist <- list.files("./data/shp/max_distance/", pattern = ".shp", full.names = TRUE)
+
 # admin0 shapefile for mini-maps
 admin0 <- readOGR("C:/layers/vector/GADM/GADM_Continental South America/AmSulNew/AmSulNew.shp")
 
@@ -136,6 +139,32 @@ for(i in 1:length(study_sp)){
     writeRaster(diff_cat, filename = paste0(run_name, study_sp[i], "/diffs/", study_sp[i],
                                             "_diff_categorical_", ssp_names[g], ".tif"), 
                 overwrite = TRUE)
+  }
+  
+}
+
+
+# suitability diffs, max distance -----------------------------------------
+
+for(i in 1:length(study_sp)){
+  
+  for(g in 1:length(ssp_names)){
+    
+    # load categorical diffs
+    diff_cat <- raster(paste0(run_name, study_sp[i], "/diffs/", study_sp[i],
+                              "_diff_categorical_", ssp_names[g], ".tif"))
+    
+    # load max distance mask
+    dist_mask <- readOGR(max_dist[i])
+    
+    # apply mask 
+    diff_masked <- mask(diff_cat, dist_mask, updatevalue = 0)
+    
+    # save output
+    writeRaster(diff_masked, 
+                filename = paste0(run_name, study_sp[i], "/diffs/", 
+                                  study_sp[i], "_diff_categorical_maxdist", 
+                                  ssp_names[g], ".tif"))
   }
   
 }
