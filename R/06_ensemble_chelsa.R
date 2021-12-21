@@ -266,6 +266,8 @@ for(i in 1:length(study_sp)){
                   ssp_names[g], sep = " "))
     
     final_mean <- calc(ssp_mean, mean)
+    final_mean <- rescale_layer(final_mean)
+    
     final_median <- calc(ssp_mean, median)
     final_sd <- calc(ssp_mean, sd)
     
