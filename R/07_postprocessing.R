@@ -162,14 +162,16 @@ for(i in 1:length(study_sp)){
   
   ggplot(pixels, aes(x = values, fill = Scenario)) +
     geom_density(alpha=.2) +
+    theme_minimal() +
     xlim(c(-1,1)) +
     geom_vline(xintercept = 0, linetype="dotted", color = "black", size=1) +
-    labs(title= study_sp_names[i]) +
-    xlab("Suitability Change") +
+    #labs(title= study_sp_names[i]) +
+    ylab("density") +
+    xlab("pixel values") +
     theme(plot.title = element_text(face = "italic"))
   
   ggsave(filename = paste0(run_name, study_sp[i], "/diffs/", study_sp[i], "_diff_densityplot.tif"),
-         scale = 2.5, width = 7, height = 5, units = "cm", device='tiff', dpi=300)
+         scale = 2.5, width = 7, height = 3, units = "cm", device='tiff', dpi=300)
 }
 
 
