@@ -194,7 +194,8 @@ for(i in 1:length(study_sp)){
 
 
 
-# multi-gcm ensemble  -----------------------------------------------------
+# multi-gcm consensus -----------------------------------------------------
+
 
 # rescale_layer function from modleR:
 
@@ -237,7 +238,8 @@ for(i in 1:length(study_sp)){
     for(h in 1:length(gcm_names)){
       
       consensus_ensemble <- list.files(path = paste0(run_name, study_sp[i], "/", 
-                                                     gcm_names[h], "/", ssp_names[g], "/", "ensemble/"),
+                                                     gcm_names[h], "/", ssp_names[g],
+                                                     "/", "ensemble/"),
                                        pattern = "consensus",
                                        full.names = TRUE) %>%
         raster()
@@ -245,7 +247,8 @@ for(i in 1:length(study_sp)){
       ssp_consensus <- addLayer(ssp_consensus, consensus_ensemble)
       
       mean_ensemble <- list.files(path = paste0(run_name, study_sp[i], "/", 
-                                                     gcm_names[h], "/", ssp_names[g], "/", "ensemble/"),
+                                                gcm_names[h], "/", ssp_names[g],
+                                                "/", "ensemble/"),
                                        pattern = "mean",
                                        full.names = TRUE) %>%
         raster()
@@ -263,7 +266,8 @@ for(i in 1:length(study_sp)){
                   ssp_names[g], sep = " "))
     
     final_mean <- calc(ssp_mean, mean)
-    final_mean <- rescale_layer(final_mean)
+    final_median <- calc(ssp_mean, median)
+    final_sd <- calc(ssp_mean, sd)
     
     # saving outputs
     
@@ -276,6 +280,10 @@ for(i in 1:length(study_sp)){
     writeRaster(final_consensus, filename = paste0(future_folder, study_sp[i], "_", ssp_names[g], "_consensus.tif"),
                 overwrite = TRUE)
     writeRaster(final_mean, filename = paste0(future_folder, study_sp[i], "_", ssp_names[g], "_mean.tif"),
+                overwrite = TRUE)
+    writeRaster(final_median, filename = paste0(future_folder, study_sp[i], "_", ssp_names[g], "_median.tif"),
+                overwrite = TRUE)
+    writeRaster(final_sd, filename = paste0(future_folder, study_sp[i], "_", ssp_names[g], "_sd.tif"),
                 overwrite = TRUE)
     
   }

@@ -23,12 +23,16 @@ study_sp <- c("L_complexa", "L_cruzi", "L_flaviscutellata", "L_intermedia",
               "L_longipalpis", "L_migonei", "L_neivai", "L_umbratilis",
               "L_wellcomei", "L_whitmani")
 
+study_sp_names <- c("Psychodopygus complexus", "Lutzomyia cruzi",
+                    "Bichromomyia flaviscutellata", "Nyssomyia intermedia",
+                    "Lutzomyia longipalpis", "Migonemyia migonei",
+                    "Nyssomyia neivai", "Nyssomyia umbratilis",
+                    "Psychodopygus wellcomei", "Nyssomyia whitmani")
+
 
 # model calibration area by species
 calib_files <- list.files("./data/shp/calib", pattern = ".shp", full.names = TRUE)
 
-# maximum distance shapefiles
-max_dist <- list.files("./data/shp/max_distance/", pattern = ".shp", full.names = TRUE)
 
 # admin0 shapefile for mini-maps
 admin0 <- readOGR("C:/layers/vector/GADM/GADM_Continental South America/AmSulNew/AmSulNew.shp")
@@ -69,6 +73,34 @@ for(i in 1:length(study_sp)){
 
 
 
+# max dispersal distance --------------------------------------------------
+
+# creating maximum dispersal masks of 500 km
+
+for(i in 1:length(study_sp)){
+  
+  hist_bin <- raster(paste0(run_name, study_sp[i], "/present/ensemble/",
+                            study_sp[i], "_final_consensus_ensemble.tif"))
+  
+  hist_poly <- rasterToPolygons(hist_bin, fun = function(x){x==1}, 
+                                dissolve = TRUE)
+  
+  max_dist <- buffer(hist_poly, width=5, dissolve=TRUE) %>%
+    intersect(., admin0) %>%
+    raster::aggregate() %>%
+    SpatialPolygonsDataFrame(., data = data.frame(id = c(1)))
+  
+  if (file.exists(paste0(run_name, study_sp[i], "/max_dispersal/")) == FALSE){
+    dir.create(paste0(run_name, study_sp[i], "/max_dispersal/"), recursive = TRUE, showWarnings = FALSE)
+  } 
+  
+  writeOGR(max_dist, dsn = paste0(run_name, study_sp[i], "/max_dispersal/",
+                            study_sp[i], "_max_5km.shp"),
+           driver = "ESRI Shapefile",
+           layer = paste0(study_sp[i], "_max_5km.shp"))
+}
+
+
 # suitability diffs, continuous -------------------------------------------
 
 
@@ -95,23 +127,49 @@ for(i in 1:length(study_sp)){
                 overwrite = TRUE)
   }
   
-  # pixel density plots
-  pixels <- tibble(scenario = c(rep("ssp126", ncell(diffs[[1]])),
-                                rep("ssp370", ncell(diffs[[2]])),
-                                rep("ssp585", ncell(diffs[[3]]))),
+  
+}
+
+
+
+# pixel density plots -----------------------------------------------------
+
+
+for(i in 1:length(study_sp)){
+  
+  # load max dispersal mask
+  
+  max_dist <- readOGR(paste0(run_name, study_sp[i], "/max_dispersal/",
+                             study_sp[i], "_max_5km.shp"))
+  
+  # load diffs for each scenario and crop to max dispersal area
+  
+  diffs <- list()
+  for(g in 1:length(ssp_names)){
+    diffs[[g]] <- raster(paste0(run_name, study_sp[i], "/diffs/", study_sp[i],
+                                "_diff_", ssp_names[g], ".tif")) %>%
+      crop(max_dist) %>%
+      mask(max_dist)
+  }
+  
+  # get pixel values
+  pixels <- tibble(Scenario = c(rep("SSP1", ncell(diffs[[1]])),
+                                rep("SSP3", ncell(diffs[[2]])),
+                                rep("SSP5", ncell(diffs[[3]]))),
                    values = c(getValues(diffs[[1]]),
                               getValues(diffs[[2]]),
                               getValues(diffs[[3]])))
   
-  ggplot(pixels, aes(x = values, fill = scenario)) +
+  ggplot(pixels, aes(x = values, fill = Scenario)) +
     geom_density(alpha=.2) +
     xlim(c(-1,1)) +
     geom_vline(xintercept = 0, linetype="dotted", color = "black", size=1) +
-    labs(title= paste(study_sp[i], "suitability diff"))
-    
-  ggsave(filename = paste0(run_name, study_sp[i], "/diffs/", study_sp[i], "_diff_densityplot.tif"),
-         width = 4200, height = 1800, units = "px", device='tiff', dpi=300)
+    labs(title= study_sp_names[i]) +
+    xlab("Suitability Change") +
+    theme(plot.title = element_text(face = "italic"))
   
+  ggsave(filename = paste0(run_name, study_sp[i], "/diffs/", study_sp[i], "_diff_densityplot.tif"),
+         scale = 2.5, width = 7, height = 5, units = "cm", device='tiff', dpi=300)
 }
 
 
