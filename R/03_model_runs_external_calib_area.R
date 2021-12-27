@@ -17,50 +17,10 @@ library(modleR)
 occ <- read_csv("./data/01_occ_chelsa_100km.csv")
 
 # paths to layers
-layer_path <- c("C:/layers/raster/chelsa/1981-2010/bio/")
+#layer_path <- c("C:/layers/raster/chelsa/1981-2010/bio/")
 
 # name a folder to save outputs of this run
 run_name <- c("./outputs/models_chelsa_100km/")
-
-
-# load data ---------------------------------------------------------------
-
-# selected predictors and extent, resample if using chelsa
-
-ext <- readRDS("./outputs/02_study_extent.rds")
-
-if(str_detect(layer_path, "chelsa") == TRUE){
-  
-  chelsa_sel_names <- read_lines("./outputs/02_chelsa_selected_variable_names.txt")
-  chelsa <- list.files(layer_path, pattern = ".tif", full.names = TRUE) %>%
-    stack() %>%
-    subset(chelsa_sel_names)
-  
-  wc_sample <- raster("C:/layers/raster/worldclim2_historical_SA_2.5/bio1_SA.tif") %>%
-    crop(ext)
-  
-  chelsa_resampled <- stack()
-  for(i in 1:nlayers(chelsa)){
-    
-    a <- crop(chelsa[[i]], wc_sample) %>%
-      resample(wc_sample, method = "bilinear") %>%
-      mask(wc_sample)
-    
-    chelsa_resampled <- addLayer(chelsa_resampled, a)
-    
-  }
-  
-  preds <- chelsa_resampled
-  
-} else {
-  
-  wc_sel_names <- read_lines("./outputs/02_selected_variable_names.txt")
-  preds <- list.files(layer_path, pattern = "tif", full.names = TRUE) %>%
-    stack() %>%
-    subset(wc_sel_names) %>%
-    crop(ext)
-  
-}
 
 # projections
 ## geographical, WGS84
@@ -84,24 +44,15 @@ for(i in 1:length(study_sp)){
   # getting only occurrences for this species
   species_df <- occ[occ$species == study_sp[i], ]
   
-  # creating model calibration area for this species
-  #coords <- species_df[ ,2:3]
-  #coordinates(coords) <- c("lon", "lat")
-  #proj4string(coords) <- crs.wgs84  # define original projection - wgs84
-  #coords <- spTransform(coords, crs.albers)  # project to Albers Equal Area
-  #mcp <- gConvexHull(coords) # create convex hull of occurrence records
-  #mcp_buf <- mcp %>%
-  #  gBuffer(width = gArea(mcp)*2e-07) %>% # draw a buffer of +20% of the convex hull (Barve et al. 2011)
-  #  spTransform(crs.wgs84) %>% #convert back into wgs84
-  #  SpatialPolygonsDataFrame(data = data.frame("val" = 1, row.names = "buffer"))
+  # getting only selected predictor variables for this species
   
-  #writeOGR(mcp_buf, dsn = paste0(run_name, study_sp[i]),
-  #         layer = paste0("03_calibration_area_", study_sp[i]),
-  #         driver = "ESRI Shapefile",
-  #         overwrite_layer = TRUE)
+  chelsa_sel_names <- read_lines(paste0("./data/var/02_selectedvar_",
+                                        study_sp[i], ".txt"))
+  preds <- list.files("./data/var", pattern = ".tif", full.names = TRUE) %>%
+    stack() %>%
+    subset(chelsa_sel_names)
   
-  # modleR will automatically do jackknife if number of records is <= 10
-
+  
   #running setup_sdmdata
   setup_sdmdata(species_name = study_sp[i],
                 occurrences = as.data.frame(species_df),
@@ -143,7 +94,7 @@ for(i in 1:length(study_sp)){
           svmk = TRUE)
 }
 
-
+beepr::beep(3)
 # L. cruzi, L. complexa and L. wellcomei did not have enough unique records to run BRT,
 # so using the following species subset to run BRT for them:
 

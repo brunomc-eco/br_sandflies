@@ -112,12 +112,14 @@ for(g in 1:length(ssp_names)){
         final_raw_mean <- mean(partitions)
         
         selected_thres <- read_csv(paste0(run_name, study_sp[i], 
-                                         "/present/final_models/", study_sp[i], 
-                                         "_mean_statistics.csv"))
+                                          "/present/final_models/", study_sp[i], 
+                                          "_final_statistics.csv")) %>%
+          filter(algorithm == selected_algo[j]) %>%
+          pull(spec_sens)
         
-        selected_thres <- pull(selected_thres[selected_thres$algorithm == selected_algo[j], "spec_sens"])
+        partitions_th <- partitions >= selected_thres
         
-        final_raw_mean_th <- final_raw_mean > selected_thres
+        final_mean_th <- calc(partitions_th, sum) >= 5
         
         projection_folder <- paste0(run_name, study_sp[i], "/", gcm_names[h], "/", ssp_names[g], "/")
         
@@ -127,8 +129,8 @@ for(g in 1:length(ssp_names)){
         
         writeRaster(final_raw_mean, filename = paste0(projection_folder, study_sp[i], "_", 
                                                       selected_algo[j], "_raw_mean.tif"), overwrite = TRUE)
-        writeRaster(final_raw_mean_th, filename = paste0(projection_folder, study_sp[i], "_", 
-                                                      selected_algo[j], "_raw_mean_th.tif"), overwrite = TRUE)
+        writeRaster(final_mean_th, filename = paste0(projection_folder, study_sp[i], "_", 
+                                                         selected_algo[j], "_mean_th.tif"), overwrite = TRUE)
         
         
       }
@@ -138,3 +140,5 @@ for(g in 1:length(ssp_names)){
   }
   
 }
+end <- Sys.time()
+beepr::beep(3)

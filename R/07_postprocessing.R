@@ -196,6 +196,14 @@ for(i in 1:length(study_sp)){
     
     diff_cat = expansion + contraction + stable # values: 1 = stable, 2 = contraction, 4 = expansion
     
+    #load max dispersal mask
+    max_dist <- readOGR(paste0(run_name, study_sp[i], "/max_dispersal/",
+                               study_sp[i], "_max_5km.shp"))
+    
+    #crop
+    diff_cat <- crop(diff_cat, max_dist) %>%
+      mask(max_dist)
+    
     writeRaster(diff_cat, filename = paste0(run_name, study_sp[i], "/diffs/", study_sp[i],
                                             "_diff_categorical_", ssp_names[g], ".tif"), 
                 overwrite = TRUE)
@@ -204,27 +212,40 @@ for(i in 1:length(study_sp)){
 }
 
 
-# suitability diffs, max distance -----------------------------------------
+# Calculate area diffs ----------------------------------------------------
+
+areacalc <- tibble(layer = c("layer1"),
+                   value = c(0),
+                   count = c(1234))
 
 for(i in 1:length(study_sp)){
   
+  # load historical binary
+  hist_bin <- raster(paste0(run_name, study_sp[i], "/present/ensemble/", study_sp[i], 
+                            "_final_consensus_ensemble.tif"))
+  
+  f <- data.frame(freq(hist_bin)) %>%
+    mutate(layer = paste(study_sp[i], "historical", sep = "_"))
+  
+  areacalc <- add_row(areacalc, f)
+  
   for(g in 1:length(ssp_names)){
-    
-    # load categorical diffs
     diff_cat <- raster(paste0(run_name, study_sp[i], "/diffs/", study_sp[i],
                               "_diff_categorical_", ssp_names[g], ".tif"))
     
-    # load max distance mask
-    dist_mask <- readOGR(max_dist[i])
+    f <- data.frame(freq(diff_cat)) %>%
+      mutate(layer = paste(study_sp[i], ssp_names[g], sep = "_"))
     
-    # apply mask 
-    diff_masked <- mask(diff_cat, dist_mask, updatevalue = 0)
+    areacalc <- add_row(areacalc, f)
     
-    # save output
-    writeRaster(diff_masked, 
-                filename = paste0(run_name, study_sp[i], "/diffs/", 
-                                  study_sp[i], "_diff_categorical_maxdist", 
-                                  ssp_names[g], ".tif"))
   }
   
 }
+
+
+final_areacalc <- tidyr::pivot_wider(areacalc, 
+                                     names_from = "layer",
+                                     values_from = "count") %>%
+  dplyr::select(-"layer1")
+
+write_csv(final_areacalc, paste0(run_name, "07_areacalc.csv"))

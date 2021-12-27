@@ -55,7 +55,7 @@ for(i in 1:length(study_sp)){
     pull(sensitivity)
   
   # load final models for this species, only selected algo
-  raw_mean_models <- list.files(path = paste0(run_name, study_sp[i],
+  mean_models <- list.files(path = paste0(run_name, study_sp[i],
                                               "/present/final_models"),
                                 pattern = "raw_mean.tif",
                                 full.names = TRUE) %>%
@@ -163,16 +163,16 @@ for(i in 1:length(study_sp)){
         stack()
       names(raw_mean_models) <- selected_algo
       
-      raw_mean_th_models <- list.files(path = projection_folder, pattern = "raw_mean_th.tif", full.names = TRUE) %>%
+      mean_th_models <- list.files(path = projection_folder, pattern = "mean_th.tif", full.names = TRUE) %>%
         stack()
-      names(raw_mean_th_models) <- selected_algo
+      names(mean_th_models) <- selected_algo
       
       message(paste("Calculating ensembles of", study_sp[i], gcm_names[h], 
                     ssp_names[g], sep = " "))
       
       # create ensembles
       ens <- raster::weighted.mean(raw_mean_models, w)
-      ens_bin <- mean(raw_mean_th_models) > consensus_level
+      ens_bin <- mean(mean_th_models) > consensus_level
       
       # save output maps
       ensemble_folder <- paste0(projection_folder, "ensemble/")
