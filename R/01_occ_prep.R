@@ -189,3 +189,5 @@ names(n_records) <- c("species", "n_chelsa", "n_chelsa_10km",
 
 # saving record counts
 write_csv(n_records, "./data/01_n_records.csv")
+
+# test commit
